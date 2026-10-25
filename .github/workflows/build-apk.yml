@@ -35,7 +35,7 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
         with:
-          gradle-version: '8.7'
+          gradle-version: '8.14.3'
           cache-read-only: false
           add-job-summary: on-failure
 
@@ -97,6 +97,12 @@ jobs:
           overwrite: true
           if-no-files-found: error
 
+      - name: Checksum file
+        run: |
+          cd "$(dirname "$APK_PATH")"
+          sha256sum "$(basename "$APK_PATH")" > "$RUNNER_TEMP/apk.sha256"
+          cat "$RUNNER_TEMP/apk.sha256"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v3
         with:
@@ -125,8 +131,9 @@ jobs:
 
             Instala `StreamFlex-0.0.1.apk` (permite "instalar apps de origen desconocido").
 
-            SHA-256: `${{ env.APK_SHA }}`
+            SHA-256: `${{ env.APK_SHA }}` (también en `apk.sha256`)
             Commit: `${{ github.sha }}`
           files: |
             ${{ env.APK_PATH }}
+            ${{ runner.temp }}/apk.sha256
           fail_on_unmatched_files: true
