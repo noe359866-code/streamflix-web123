@@ -1,8 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">StreamFlex</string>
+
+    <!-- Versión: se mantiene fija en 0.0.1 -->
     <string name="version_placeholder">v0.0.1</string>
-    <string name="tagline">Tu entretenimiento, a tu manera.\nApp propia · sin anuncios · sin permisos</string>
+    <string name="version_chip_format">v%1$s  ·  BETA</string>
+
+    <string name="tagline">Entretenimiento sin ruido.\nHecho a mano, sin ataduras.</string>
+
+    <string name="feature_no_ads">Sin anuncios</string>
+    <string name="feature_offline">100% offline</string>
+    <string name="feature_no_permissions">0 permisos</string>
+
+    <string name="hint_details">Toca el logo para ver los detalles técnicos</string>
+
     <string name="build_line">Android SDK %1$s</string>
-    <string name="footer">StreamFlex 0.0.1 — build propio</string>
+    <string name="footer_format">StreamFlex %1$s · build propio</string>
+
+    <!-- Diálogo de detalles -->
+    <string name="about_title">Acerca de StreamFlex</string>
+    <string name="about_close">Cerrar</string>
+    <string name="label_version">Versión</string>
+    <string name="label_package">Paquete</string>
+    <string name="label_android">Android</string>
+    <string name="label_device">Dispositivo</string>
+    <string name="label_abi">Arquitectura</string>
+    <string name="label_permissions">Permisos</string>
+    <string name="label_libraries">Librerías</string>
+
+    <string name="value_no_permissions">0 (ninguno)</string>
+    <string name="value_no_libraries">0 (SDK puro)</string>
+    <string name="value_unknown">Desconocido</string>
 </resources>

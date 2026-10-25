@@ -2,70 +2,108 @@
 
 # 🎬 StreamFlex
 
-**v0.0.1 — primera versión propia**
+**v0.0.1 — misma versión, build mucho más estable**
 
 App Android nativa · sin anuncios · sin permisos · sin telemetría
 
 ![version](https://img.shields.io/badge/version-0.0.1-4f8ef7?style=for-the-badge)
 ![platform](https://img.shields.io/badge/platform-Android%205.0%2B-3ddc84?style=for-the-badge&logo=android)
 ![package](https://img.shields.io/badge/package-com.noe.streamflex-8b5cf6?style=for-the-badge)
+![deps](https://img.shields.io/badge/dependencies-0-22c55e?style=for-the-badge)
 
 </div>
 
 ---
 
-## ¿Qué es esto?
+## 📥 Descargar el APK
 
-**StreamFlex** es una app Android propia, hecha desde cero con Java + Android SDK puro (sin
-librerías externas, sin AndroidX, sin dependencias descargadas). Esta `0.0.1` es la versión
-inicial: pantalla de marca con logo animado, nombre y versión leída directamente del paquete
-instalado.
+**[Releases → StreamFlex v0.0.1](../../releases/tag/v0.0.1)** → `StreamFlex-0.0.1.apk`
+
+1. Descarga el APK (o usa el artifact del run de Actions)
+2. En el celular activa *"Instalar apps de origen desconocido"*
+3. Abre el archivo → Instalar → listo
+
+> La versión **no** cambia: sigue siendo `0.0.1` (versionCode 1). El Release se
+> actualiza con cada build mejorado, así que si ya lo tenías, vuelve a descargarlo
+> para quedarte con la build más reciente.
+
+---
+
+## ✨ Lo que se mejoró en esta build
+
+### Estabilidad (lo importante)
+
+| Antes | Ahora |
+|---|---|
+| Animaciones encadenadas sin control | Un único `Choreographer.FrameCallback` por vista animada, con auto-pausa |
+| Animación seguía corriendo en segundo plano | Se detiene en `onDetachedFromWindow` / al ocultarse la ventana |
+| Contenido tapado por notch o barra de estado | Insets aplicados por código (API 21 → 34), con `displayCutout` |
+| Se cortaba en horizontal o pantallas chicas | Todo el contenido va en `ScrollView` con `fillViewport` |
+| Animaciones ignoraban accesibilidad | Respeta *"Quitar animaciones"* del sistema (`ANIMATOR_DURATION_SCALE = 0`) |
+| Posible pantalla en blanco si algo fallaba | Arranque con respaldo anti-crash (`try/catch` + vista mínima) |
+| Cero verificación en CI | El build **falla** si la firma, el package o la versión no cuadran |
+| Builds podían pisarse entre sí | `concurrency` por rama + `timeout-minutes` |
+
+### Diseño
+
+- **Fondo vivo propio**: 3 auroras radiales en movimiento + 64 estrellas titilantes, dibujadas a mano en `Canvas` (cero librerías, cero asignaciones por frame).
+- **Halos que laten** detrás del logo + logo con respuesta táctil (se hunde al tocar).
+- **Título con shimmer**: degradado de luz que barre el nombre.
+- **Tarjetas de vidrio** con las 3 garantías: sin anuncios · 100% offline · 0 permisos.
+- **Chip de versión** que lee la versión real del paquete instalado (`v0.0.1 · BETA`).
+- **Splash nativo** en Android 12+ con el icono de la app.
+- **Entrada escalonada** de todos los bloques con `DecelerateInterpolator`.
+
+### Funcionalidad nueva
+
+- **Toca el logo** → háptica + diálogo "Acerca de StreamFlex" con datos reales del
+  dispositivo: versión, package, Android/SDK, fabricante y modelo, arquitectura (ABI)
+  y número de permisos realmente declarados en el manifiesto.
+
+---
+
+## 📱 Ficha técnica
 
 | Dato | Valor |
 |---|---|
-| Nombre de la app | **StreamFlex** |
-| Versión | **0.0.1** |
-| versionCode | `1` |
-| Package / applicationId | `com.noe.streamflex` |
-| minSdk | 21 (Android 5.0 Lollipop) |
-| targetSdk | 34 (Android 14) |
-| Lenguaje | Java |
-| Peso del APK | ~1 MB |
+| Nombre | **StreamFlex** |
+| Versión | **0.0.1** (versionCode 1) |
+| Package | `com.noe.streamflex` |
+| minSdk | 21 — Android 5.0 Lollipop |
+| targetSdk | 34 — Android 14 |
+| Lenguaje | Java (SDK puro) |
+| Dependencias | **0** |
+| Permisos | **0** |
+| Red | **Ninguna** — funciona 100% offline |
+| Tamaño | ~90 KB |
+
+### Código
+
+```
+app/src/main/java/com/noe/streamflex/
+├── MainActivity.java          # orquesta UI, insets, datos reales, diálogo
+└── ui/
+    ├── AuroraBackdropView.java  # auroras + campo de estrellas (Canvas)
+    ├── PulseRingView.java       # halos que laten
+    └── ShimmerTitleView.java    # título con barrido de luz
+```
 
 ---
 
-## 📥 Descargar el APK
+## 🛠️ Compilar
 
-El APK se compila automáticamente en **GitHub Actions** y se publica en
-**[Releases](../../releases)** de este repo:
-
-1. Abre **[Releases](../../releases/tag/v0.0.1)** → `StreamFlex v0.0.1`
-2. Descarga **`StreamFlex-0.0.1.apk`** (junto al `apk.sha256` para verificar)
-3. En el celular activa *"Instalar apps de origen desconocido"* y abre el archivo
-4. Instalar → abrir → listo
-
-> También puedes generarlo manualmente desde la pestaña **Actions → Build StreamFlex APK → Run workflow**.
-> El APK queda como *artifact* de la ejecución y además en un Release.
-
----
-
-## 🛠️ Compilar desde cero (local)
-
-Requisitos: **JDK 17** y **Android SDK** (con build-tools 34).
+Requisitos: **JDK 17** + **Android SDK** con build-tools 34.
 
 ```bash
-git clone https://github.com/noe359866-code/streamflix-web123.git
-cd streamflix-web123
-gradle assembleDebug        # APK de prueba, firmado con la debug key
-# o, para release firmado:
-gradle assembleRelease
+gradle assembleDebug     # APK de prueba
+gradle assembleRelease   # APK release
 ```
 
 Los APK salen en `app/build/outputs/apk/{debug,release}/`.
+El CI (`.github/workflows/build-apk.yml`) compila, firma, verifica y publica el
+Release automáticamente en cada push.
 
-### Firma (opcional)
-
-Si defines estas variables de entorno, el build de release se firma con tu keystore:
+### Firma
 
 ```bash
 export SIGNING_KEYSTORE=/ruta/mi.keystore
@@ -75,47 +113,15 @@ export SIGNING_KEY_PASSWORD=****
 gradle assembleRelease
 ```
 
-Si no las defines, el CI crea un keystore temporal para firmar el APK de release.
-
----
-
-## 📁 Estructura del proyecto
-
-```
-.
-├── app/
-│   ├── build.gradle                 # config de la app + versionName 0.0.1
-│   └── src/main/
-│       ├── AndroidManifest.xml
-│       ├── java/com/noe/streamflex/
-│       │   └── MainActivity.java    # pantalla de inicio (animaciones nativas)
-│       └── res/
-│           ├── drawable/            # degradados, glow, logo vectorial
-│           ├── layout/activity_main.xml
-│           ├── mipmap-*/            # iconos launcher (todas las densidades)
-│           └── values/              # strings, colores, tema
-├── .github/workflows/build-apk.yml  # CI: compila, firma y publica el APK
-├── build.gradle
-├── settings.gradle
-└── gradle.properties
-```
+Si no defines esas variables, el CI crea un keystore temporal para firmar el release.
 
 ---
 
 ## 🔒 Privacidad
 
-- **0 permisos** declarados en el manifest
-- **0 librerías de terceros**
-- **0 conexiones de red** — la app funciona totalmente offline
-- No recopila, no envía ni comparte ningún dato
-
----
-
-## 🗺️ Roadmap (próximas versiones)
-
-- `0.1.0` — catálogo local con listas y búsqueda
-- `0.2.0` — reproductor propio (MediaPlayer / ExoPlayer)
-- `0.3.0` — favoritos y "continuar viendo" persistidos
+- 0 permisos declarados en el manifiesto (verificado por CI con `aapt2`)
+- 0 librerías de terceros
+- 0 conexiones de red
 
 ---
 
