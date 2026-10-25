@@ -68,8 +68,10 @@ jobs:
           path: ${{ env.APK_PATH }}
           if-no-files-found: error
 
+      - name: Checksum
+        run: sha256sum "$APK_PATH" | awk '{print $1}' > "$RUNNER_TEMP/apk.sha256" && cat "$RUNNER_TEMP/apk.sha256"
+
       - name: Publish GitHub Release
-        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v0.0.1
@@ -87,5 +89,9 @@ jobs:
 
             Instala el APK adjunto (`StreamFlex-0.0.1.apk`) en tu Android.
             Debes permitir "instalar apps de origen desconocido".
-          files: ${{ env.APK_PATH }}
+
+            El SHA-256 se calcula en el paso *Checksum* del run.
+          files: |
+            ${{ env.APK_PATH }}
+            ${{ runner.temp }}/apk.sha256
           fail_on_unmatched_files: true

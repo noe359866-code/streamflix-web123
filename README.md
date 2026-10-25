@@ -39,8 +39,8 @@ instalado.
 El APK se compila automáticamente en **GitHub Actions** y se publica en
 **[Releases](../../releases)** de este repo:
 
-1. Abre **Releases** → `StreamFlex v0.0.1`
-2. Descarga `StreamFlex-0.0.1.apk`
+1. Abre **[Releases](../../releases/tag/v0.0.1)** → `StreamFlex v0.0.1`
+2. Descarga **`StreamFlex-0.0.1.apk`** (junto al `apk.sha256` para verificar)
 3. En el celular activa *"Instalar apps de origen desconocido"* y abre el archivo
 4. Instalar → abrir → listo
 
