@@ -19,9 +19,20 @@ App Android nativa · sin anuncios · sin permisos · sin telemetría
 
 **[Releases → StreamFlex v0.0.1](../../releases/tag/v0.0.1)** → `StreamFlex-0.0.1.apk`
 
-1. Descarga el APK (o usa el artifact del run de Actions)
+1. Descarga `StreamFlex-0.0.1.apk` (o usa el artifact del run de Actions)
 2. En el celular activa *"Instalar apps de origen desconocido"*
 3. Abre el archivo → Instalar → listo
+4. Si Play Protect muestra un aviso (pasa con cualquier app fuera de la Play Store),
+   elige **"Instalar de todas formas"**
+
+### Verificar la descarga (opcional)
+
+El release incluye `apk.sha256`:
+
+```bash
+sha256sum -c apk.sha256
+# StreamFlex-0.0.1.apk: OK
+```
 
 > La versión **no** cambia: sigue siendo `0.0.1` (versionCode 1). El Release se
 > actualiza con cada build mejorado, así que si ya lo tenías, vuelve a descargarlo
@@ -42,6 +53,7 @@ App Android nativa · sin anuncios · sin permisos · sin telemetría
 | Animaciones ignoraban accesibilidad | Respeta *"Quitar animaciones"* del sistema (`ANIMATOR_DURATION_SCALE = 0`) |
 | Posible pantalla en blanco si algo fallaba | Arranque con respaldo anti-crash (`try/catch` + vista mínima) |
 | Cero verificación en CI | El build **falla** si la firma, el package o la versión no cuadran |
+| Checksum del release podía quedar viejo | `apk.sha256` se regenera en cada build junto al APK |
 | Builds podían pisarse entre sí | `concurrency` por rama + `timeout-minutes` |
 
 ### Diseño
@@ -59,6 +71,9 @@ App Android nativa · sin anuncios · sin permisos · sin telemetría
 - **Toca el logo** → háptica + diálogo "Acerca de StreamFlex" con datos reales del
   dispositivo: versión, package, Android/SDK, fabricante y modelo, arquitectura (ABI)
   y número de permisos realmente declarados en el manifiesto.
+- **Toca el chip de versión** → repite la animación de entrada.
+- **Rendimiento**: el fondo animado se limita a ~40 fps (las auroras son lentas) para
+  no gastar batería ni calentar el teléfono.
 
 ---
 
