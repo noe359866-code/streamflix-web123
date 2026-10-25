@@ -233,6 +233,21 @@ public class MainActivity extends Activity {
                 }
             });
         }
+
+        // Tocar el chip de versión repite la animación de entrada.
+        if (versionChip != null) {
+            versionChip.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View view) {
+                    view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
+                    if (reducedMotion) {
+                        showFinalState();
+                    } else {
+                        playIntro();
+                    }
+                }
+            });
+        }
     }
 
     // ---------------------------------------------------------------- animación

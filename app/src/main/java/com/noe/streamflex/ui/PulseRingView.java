@@ -17,11 +17,13 @@ import android.view.View;
 public class PulseRingView extends View {
 
     private static final int RING_COUNT = 2;
+    private static final long MIN_FRAME_NS = 25_000_000L;
 
     private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint hazePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
     private long startNanos;
+    private long lastInvalidateNanos;
     private boolean frameScheduled;
     private boolean animated = true;
     private float strokeWidth;
@@ -30,7 +32,10 @@ public class PulseRingView extends View {
         @Override
         public void doFrame(long frameTimeNanos) {
             frameScheduled = false;
-            invalidate();
+            if (lastInvalidateNanos == 0L || frameTimeNanos - lastInvalidateNanos >= MIN_FRAME_NS) {
+                lastInvalidateNanos = frameTimeNanos;
+                invalidate();
+            }
             scheduleFrame();
         }
     };

@@ -41,6 +41,7 @@
 
                 <FrameLayout
                     android:id="@+id/logo_badge"
+                    android:contentDescription="@string/hint_details"
                     android:layout_width="118dp"
                     android:layout_height="118dp"
                     android:layout_gravity="center"
@@ -53,7 +54,7 @@
                         android:layout_width="48dp"
                         android:layout_height="48dp"
                         android:layout_gravity="center"
-                        android:contentDescription="@string/app_name"
+                        android:importantForAccessibility="no"
                         android:src="@drawable/ic_play_triangle" />
                 </FrameLayout>
             </FrameLayout>
@@ -89,6 +90,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/chip_bg"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:fontFamily="monospace"
                     android:letterSpacing="0.04"
                     android:paddingStart="16dp"

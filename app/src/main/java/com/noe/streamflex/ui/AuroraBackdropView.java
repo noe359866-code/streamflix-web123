@@ -26,6 +26,8 @@ public class AuroraBackdropView extends View {
 
     private static final int STAR_COUNT = 64;
     private static final int BLOB_COUNT = 3;
+    /** Tope de ~40 fps: las auroras son lentas, no hace falta redibujar a 120 Hz. */
+    private static final long MIN_FRAME_NS = 25_000_000L;
 
     private static final int[] BLOB_COLORS = {
             0xFF2F6BFF, // azul
@@ -45,6 +47,7 @@ public class AuroraBackdropView extends View {
 
     private float blobRadius;
     private long startNanos;
+    private long lastInvalidateNanos;
     private boolean frameScheduled;
     private boolean animated = true;
 
@@ -52,7 +55,10 @@ public class AuroraBackdropView extends View {
         @Override
         public void doFrame(long frameTimeNanos) {
             frameScheduled = false;
-            invalidate();
+            if (lastInvalidateNanos == 0L || frameTimeNanos - lastInvalidateNanos >= MIN_FRAME_NS) {
+                lastInvalidateNanos = frameTimeNanos;
+                invalidate();
+            }
             scheduleFrame();
         }
     };
