@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">StreamFlex</string>
+    <string name="version_placeholder">v0.0.1</string>
+    <string name="tagline">Tu entretenimiento, a tu manera.\nApp propia · sin anuncios · sin permisos</string>
+    <string name="build_line">Android SDK %1$s</string>
+    <string name="footer">StreamFlex 0.0.1 — build propio</string>
+</resources>

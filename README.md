@@ -1,124 +1,126 @@
 <div align="center">
 
-![Cinema HQ](https://www.cinemahq.app/public/SectionImages/mainlogo.png)
+# 🎬 StreamFlex
 
-# Cinema HQ — #1 Media Application
+**v0.0.1 — primera versión propia**
 
-**Watch Everything. All in One Place.**
+App Android nativa · sin anuncios · sin permisos · sin telemetría
 
-Cinema HQ is the ultimate media app for Android — Movies, TV-Shows, Live TV, Anime, Retro Games and more, wrapped in a sleek Material interface with Debrid & torrent service support.
-
-[![Download v8.7](https://img.shields.io/badge/Download-v8.7_APK-4f8ef7?style=for-the-badge&logo=android)](https://cinemahq.app/dl/)
-[![Discord](https://img.shields.io/badge/Discord-Join_Community-5865F2?style=for-the-badge&logo=discord)](https://discord.gg/nHHxpWHteE)
-[![GitHub](https://img.shields.io/badge/GitHub-Releases-24292e?style=for-the-badge&logo=github)](https://github.com/Inside4ndroid/Cinema-HQ/releases)
-[![Sponsor](https://img.shields.io/badge/Sponsor-Donate-ea4aaa?style=for-the-badge&logo=githubsponsors)](https://github.com/sponsors/Inside4ndroid)
+![version](https://img.shields.io/badge/version-0.0.1-4f8ef7?style=for-the-badge)
+![platform](https://img.shields.io/badge/platform-Android%205.0%2B-3ddc84?style=for-the-badge&logo=android)
+![package](https://img.shields.io/badge/package-com.noe.streamflex-8b5cf6?style=for-the-badge)
 
 </div>
 
 ---
 
-## Features
+## ¿Qué es esto?
 
-| | Feature | Description |
-|---|---|---|
-| 🎬 | **Movies** | 100,000+ movies on demand. Browse by genre, year, TMDb rating and more. |
-| 📺 | **TV Shows** | Every season of your favourite series, from classics to the latest releases. |
-| 📡 | **Live TV** | Hundreds of live channels via CHQ TV, Xumo, Tubi, Pluto, Samsung TV+, Roku TV and more. |
-| ⛩️ | **Anime** | Dedicated Anime section — TV series, movies, OVA, ONA and specials. |
-| 🔞 | **Adult Content** | Dedicated Adult section — This section is hidden but can be enabled via settings with a secure pin. |
-| 🎮 | **Retro Games** | Built-in SNES and Sega Genesis library with integrated emulator support. |
-| 🔍 | **Smart Search** | Search across all content types. Filter by genre, year, rating and more. |
-| 📥 | **Downloads** | Download content for offline viewing via TorBox or your connected debrid service. |
-| 🔖 | **Watchlist & History** | Track what you've watched, pick up where you left off, and plan what's next. |
+**StreamFlex** es una app Android propia, hecha desde cero con Java + Android SDK puro (sin
+librerías externas, sin AndroidX, sin dependencias descargadas). Esta `0.0.1` es la versión
+inicial: pantalla de marca con logo animado, nombre y versión leída directamente del paquete
+instalado.
 
----
-
-## How to Install
-
-Cinema HQ is a sideload-ready APK for Android. Follow these simple steps:
-
-**Step 1 — Downloader App (Fire TV / Android TV)**
-> Open the **Downloader** app from your device's app store and enter code: **`9013501`**
-
-**Step 2 — Or use Applinked**
-> Install **Applinked** and enter store code: **`144`**
-
-**Step 3 — Direct APK Download (Phone / Tablet)**
-> Download the APK directly from [cinemahq.app/dl/](https://cinemahq.app/dl/) and install it.
-
-**Step 4 — Connect & Enjoy**
-> Open Cinema HQ. Optionally connect a debrid service for premium quality streams, then sit back and enjoy!
-
----
-
-## Codes & Quick Access
-
-| Service | Code | Instructions |
-|---|---|---|
-| **Applinked** | `144` | Open Applinked → tap *Enter Code* → type `144` |
-| **Downloader** | `9013501` | Open Downloader → enter code `9013501` to load the APK |
-
----
-
-## Premium Services *(all optional)*
-
-Cinema HQ works perfectly out of the box. Connecting a premium service unlocks higher-quality streams, faster speeds, and extra features. **None of these are required.**
-
-### All-Debrid
-A premium link host and torrent downloader. Caches popular torrents for instant streaming at up to 1 Gbps — no seeders required. Supports 4K HDR content from major file hosts.
-> [Get a All-Debrid Account →](https://alldebrid.com/)
-
-### Premiumize
-Premium multi-host service with cloud storage. Unlocks HD/UHD streams from 200+ file hosts and caches torrents in the cloud for instant, high-speed playback.
-> [Get a Premiumize Account →](https://www.premiumize.me/)
-
-### TorBox
-A modern torrent caching service. Provides fast, reliable cached torrents and direct downloads with competitive pricing and excellent streaming support.
-> [Get a TorBox Account →](https://torbox.app/subscription?referral=a43c4cf6-a993-4259-a2ee-94dcc1aa64c2)
-
-### Real-Debrid
-an online unrestricted downloader and multi-hoster service that lets you download files or stream media at maximum speed.
-> [Get a Real-Debrid Account →](http://real-debrid.com/?id=953975)
-
-### EasyNews
-A premium link host. fetch sources deirectly from EasyNews (Usenet) within the app
-> [Get an EasyNews Account →](https://www.easynews.com/)
-
-### Trakt
-Track everything you watch and sync your history across all devices and apps. Powers your watchlist, recommendations and progress inside Cinema HQ.
-> [Get a Trakt Account →](https://app.trakt.tv/)
-
----
-
-## Keeping Cinema HQ 100% Advert-Free — Honeygain
-
-![Honeygain Logo](https://cinemahq.app/public/Icons/hg-200h.png)
-
-Cinema HQ contains **no banner ads, no pop-ups and no interstitials**. To fund ongoing development without disrupting your experience, Cinema HQ integrates the **Honeygain SDK** — a background resource-sharing service that passively uses a small amount of your unused internet bandwidth. You are always in control and can opt out at any time.
-
-- Uses only idle, unused bandwidth — your active connection is never affected
-- Runs silently in the background and does not log or transmit your personal data
-- No adverts, no pop-ups and no pay-walls — ever
-- Directly funds the app to keep it free and maintained
-
-> [Learn more about Honeygain SDK →](https://www.honeygain.com/sdk)
-
----
-
-## Links
-
-| | Link |
+| Dato | Valor |
 |---|---|
-| 🌐 Website | [cinemahq.app](https://cinemahq.app) |
-| 📦 Download | [cinemahq.app/dl/](https://cinemahq.app/dl/) |
-| 💬 Discord | [discord.com/invite/NNxnW3Unh4](https://discord.com/invite/NNxnW3Unh4) |
-| 🐙 GitHub Releases | [Cinema-HQ/releases](https://github.com/Inside4ndroid/Cinema-HQ/releases) |
-| ❤️ Sponsor | [github.com/sponsors/Inside4ndroid](https://github.com/sponsors/Inside4ndroid) |
+| Nombre de la app | **StreamFlex** |
+| Versión | **0.0.1** |
+| versionCode | `1` |
+| Package / applicationId | `com.noe.streamflex` |
+| minSdk | 21 (Android 5.0 Lollipop) |
+| targetSdk | 34 (Android 14) |
+| Lenguaje | Java |
+| Peso del APK | ~1 MB |
+
+---
+
+## 📥 Descargar el APK
+
+El APK se compila automáticamente en **GitHub Actions** y se publica en
+**[Releases](../../releases)** de este repo:
+
+1. Abre **Releases** → `StreamFlex v0.0.1`
+2. Descarga `StreamFlex-0.0.1.apk`
+3. En el celular activa *"Instalar apps de origen desconocido"* y abre el archivo
+4. Instalar → abrir → listo
+
+> También puedes generarlo manualmente desde la pestaña **Actions → Build StreamFlex APK → Run workflow**.
+> El APK queda como *artifact* de la ejecución y además en un Release.
+
+---
+
+## 🛠️ Compilar desde cero (local)
+
+Requisitos: **JDK 17** y **Android SDK** (con build-tools 34).
+
+```bash
+git clone https://github.com/noe359866-code/streamflix-web123.git
+cd streamflix-web123
+gradle assembleDebug        # APK de prueba, firmado con la debug key
+# o, para release firmado:
+gradle assembleRelease
+```
+
+Los APK salen en `app/build/outputs/apk/{debug,release}/`.
+
+### Firma (opcional)
+
+Si defines estas variables de entorno, el build de release se firma con tu keystore:
+
+```bash
+export SIGNING_KEYSTORE=/ruta/mi.keystore
+export SIGNING_STORE_PASSWORD=****
+export SIGNING_KEY_ALIAS=****
+export SIGNING_KEY_PASSWORD=****
+gradle assembleRelease
+```
+
+Si no las defines, el CI crea un keystore temporal para firmar el APK de release.
+
+---
+
+## 📁 Estructura del proyecto
+
+```
+.
+├── app/
+│   ├── build.gradle                 # config de la app + versionName 0.0.1
+│   └── src/main/
+│       ├── AndroidManifest.xml
+│       ├── java/com/noe/streamflex/
+│       │   └── MainActivity.java    # pantalla de inicio (animaciones nativas)
+│       └── res/
+│           ├── drawable/            # degradados, glow, logo vectorial
+│           ├── layout/activity_main.xml
+│           ├── mipmap-*/            # iconos launcher (todas las densidades)
+│           └── values/              # strings, colores, tema
+├── .github/workflows/build-apk.yml  # CI: compila, firma y publica el APK
+├── build.gradle
+├── settings.gradle
+└── gradle.properties
+```
+
+---
+
+## 🔒 Privacidad
+
+- **0 permisos** declarados en el manifest
+- **0 librerías de terceros**
+- **0 conexiones de red** — la app funciona totalmente offline
+- No recopila, no envía ni comparte ningún dato
+
+---
+
+## 🗺️ Roadmap (próximas versiones)
+
+- `0.1.0` — catálogo local con listas y búsqueda
+- `0.2.0` — reproductor propio (MediaPlayer / ExoPlayer)
+- `0.3.0` — favoritos y "continuar viendo" persistidos
 
 ---
 
 <div align="center">
 
-© 2024 Cinema HQ · Built by [Inside4ndroid](https://github.com/Inside4ndroid)
+Hecho con 💙 por **Noe** · StreamFlex 0.0.1
 
 </div>
