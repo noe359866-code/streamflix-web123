@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_screen">
+
+    <com.noe.streamflex.ui.AuroraBackdropView
+        android:id="@+id/backdrop"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:clipToPadding="false"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_horizontal|center_vertical"
+            android:orientation="vertical"
+            android:paddingStart="24dp"
+            android:paddingTop="24dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="20dp">
+
+            <!-- Logo + halos -->
+            <FrameLayout
+                android:id="@+id/logo_stack"
+                android:layout_width="190dp"
+                android:layout_height="190dp">
+
+                <com.noe.streamflex.ui.PulseRingView
+                    android:id="@+id/pulse_ring"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent" />
+
+                <FrameLayout
+                    android:id="@+id/logo_badge"
+                    android:contentDescription="@string/hint_details"
+                    android:layout_width="118dp"
+                    android:layout_height="118dp"
+                    android:layout_gravity="center"
+                    android:background="@drawable/logo_badge"
+                    android:clickable="true"
+                    android:elevation="12dp"
+                    android:focusable="true">
+
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:layout_gravity="center"
+                        android:importantForAccessibility="no"
+                        android:src="@drawable/ic_play_triangle" />
+                </FrameLayout>
+            </FrameLayout>
+
+            <!-- Nombre -->
+            <com.noe.streamflex.ui.ShimmerTitleView
+                android:id="@+id/app_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.06"
+                android:shadowColor="#8B5CF6"
+                android:shadowDx="0"
+                android:shadowDy="0"
+                android:shadowRadius="22"
+                android:text="@string/app_name"
+                android:textColor="#FFFFFF"
+                android:textSize="38sp"
+                android:textStyle="bold" />
+
+            <!-- Chip de versión -->
+            <LinearLayout
+                android:id="@+id/version_row"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/version_chip"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/chip_bg"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="monospace"
+                    android:letterSpacing="0.04"
+                    android:paddingStart="16dp"
+                    android:paddingTop="7dp"
+                    android:paddingEnd="16dp"
+                    android:paddingBottom="7dp"
+                    android:text="@string/version_placeholder"
+                    android:textColor="#C6D6FF"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- Tagline -->
+            <TextView
+                android:id="@+id/tagline"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center"
+                android:lineSpacingExtra="4dp"
+                android:text="@string/tagline"
+                android:textColor="#A2AECB"
+                android:textSize="15sp" />
+
+            <!-- Tarjetas de garantías -->
+            <LinearLayout
+                android:id="@+id/feature_row"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card_glass"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingStart="6dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="14dp">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:contentDescription="@string/feature_no_ads"
+                        android:src="@drawable/ic_no_ads" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="@string/feature_no_ads"
+                        android:textColor="#D6DEF5"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_marginEnd="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card_glass"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingStart="6dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="14dp">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:contentDescription="@string/feature_offline"
+                        android:src="@drawable/ic_offline" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="@string/feature_offline"
+                        android:textColor="#D6DEF5"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="5dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_card_glass"
+                    android:gravity="center_horizontal"
+                    android:orientation="vertical"
+                    android:paddingStart="6dp"
+                    android:paddingTop="14dp"
+                    android:paddingEnd="6dp"
+                    android:paddingBottom="14dp">
+
+                    <ImageView
+                        android:layout_width="22dp"
+                        android:layout_height="22dp"
+                        android:contentDescription="@string/feature_no_permissions"
+                        android:src="@drawable/ic_shield" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:gravity="center"
+                        android:text="@string/feature_no_permissions"
+                        android:textColor="#D6DEF5"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/hint_details"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:alpha="0.65"
+                android:gravity="center"
+                android:text="@string/hint_details"
+                android:textColor="#8F9CBE"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:id="@+id/footer_block"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center_horizontal"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/build_line"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:alpha="0.6"
+                    android:fontFamily="monospace"
+                    android:text="@string/version_placeholder"
+                    android:textColor="#7E8BB0"
+                    android:textSize="11sp" />
+
+                <TextView
+                    android:id="@+id/footer_line"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="5dp"
+                    android:alpha="0.6"
+                    android:text="@string/version_placeholder"
+                    android:textColor="#7E8BB0"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+        </LinearLayout>
+    </ScrollView>
+
+</FrameLayout>

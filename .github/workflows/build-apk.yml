@@ -1,0 +1,139 @@
+name: Build StreamFlex APK
+
+on:
+  push:
+    branches: [ main, 'arena/**' ]
+  workflow_dispatch:
+
+# Un solo build a la vez por rama: evita releases pisados.
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  EXPECTED_VERSION: '0.0.1'
+
+jobs:
+  build:
+    name: Build & sign APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: '8.14.3'
+          cache-read-only: false
+          add-job-summary: on-failure
+
+      - name: Generate signing keystore
+        run: |
+          keytool -genkeypair -v \
+            -keystore "$RUNNER_TEMP/release.keystore" \
+            -storepass streamflex \
+            -keypass streamflex \
+            -alias streamflex \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=StreamFlex, OU=Mobile, O=StreamFlex, L=Managua, S=Managua, C=NI"
+
+      - name: Build release APK
+        env:
+          SIGNING_KEYSTORE: ${{ runner.temp }}/release.keystore
+          SIGNING_STORE_PASSWORD: streamflex
+          SIGNING_KEY_ALIAS: streamflex
+          SIGNING_KEY_PASSWORD: streamflex
+        run: gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Verify APK (firma, versión y manifiesto)
+        run: |
+          set -euo pipefail
+          APK=$(find app/build/outputs/apk/release -name '*.apk' | head -n 1)
+          echo "APK: $APK"
+          BUILD_TOOLS=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)
+          echo "build-tools: $BUILD_TOOLS"
+
+          "$BUILD_TOOLS/apksigner" verify --print-certs "$APK"
+
+          BADGING=$("$BUILD_TOOLS/aapt2" dump badging "$APK")
+          echo "$BADGING" | head -n 6
+          echo "$BADGING" | grep -i "uses-permission" || echo "OK: 0 permisos declarados"
+
+          VERSION=$(printf '%s\n' "$BADGING" | grep -m1 -o "versionName='[^']*'" | cut -d"'" -f2)
+          PACKAGE=$(printf '%s\n' "$BADGING" | grep -m1 -o "package: name='[^']*'" | cut -d"'" -f2)
+          echo "versionName=$VERSION package=$PACKAGE"
+
+          if [ "$VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "::error::La versión cambió ($VERSION). Debe quedarse en $EXPECTED_VERSION."
+            exit 1
+          fi
+          if [ "$PACKAGE" != "com.noe.streamflex" ]; then
+            echo "::error::Package inesperado: $PACKAGE"
+            exit 1
+          fi
+
+          echo "APK_PATH=$APK" >> "$GITHUB_ENV"
+          echo "APK_SIZE=$(du -h "$APK" | cut -f1)" >> "$GITHUB_ENV"
+          echo "APK_SHA=$(sha256sum "$APK" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: StreamFlex-0.0.1-apk
+          path: ${{ env.APK_PATH }}
+          retention-days: 30
+          overwrite: true
+          if-no-files-found: error
+
+      - name: Checksum file
+        run: |
+          cd "$(dirname "$APK_PATH")"
+          sha256sum "$(basename "$APK_PATH")" > "$RUNNER_TEMP/apk.sha256"
+          cat "$RUNNER_TEMP/apk.sha256"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: v0.0.1
+          name: StreamFlex v0.0.1
+          overwrite_files: true
+          make_latest: true
+          body: |
+            ## StreamFlex v0.0.1
+
+            Misma versión, build más estable y con mejor diseño.
+
+            - Nombre: **StreamFlex** · Version: **0.0.1** (versionCode 1)
+            - Package: `com.noe.streamflex`
+            - minSdk 21 (Android 5.0+) · targetSdk 34
+            - Sin permisos · sin red · sin librerías de terceros
+            - Tamaño: `${{ env.APK_SIZE }}`
+
+            **Mejoras de esta build**
+            - Fondo animado propio (auroras + estrellas) con un solo frame callback y auto-pausa.
+            - Insets de notch/barra de estado/navegación aplicados por código: nada queda tapado.
+            - Contenido desplazable: se ve bien en pantallas pequeñas y en horizontal.
+            - Modo "reducir movimiento" del sistema respetado (sin animaciones).
+            - Diálogo de detalles técnicos al tocar el logo (versión, package, ABI, permisos reales).
+            - Arranque con splash nativo en Android 12+ y pantalla de respaldo anti-crash.
+
+            Instala `StreamFlex-0.0.1.apk` (permite "instalar apps de origen desconocido").
+
+            SHA-256: `${{ env.APK_SHA }}` (también en `apk.sha256`)
+            Commit: `${{ github.sha }}`
+          files: |
+            ${{ env.APK_PATH }}
+            ${{ runner.temp }}/apk.sha256
+          fail_on_unmatched_files: true

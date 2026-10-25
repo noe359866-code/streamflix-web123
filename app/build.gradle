@@ -1,0 +1,57 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.noe.streamflex'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.noe.streamflex"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "0.0.1"
+    }
+
+    signingConfigs {
+        release {
+            def keystorePath = System.getenv("SIGNING_KEYSTORE")
+            if (keystorePath != null && !keystorePath.isEmpty()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("SIGNING_STORE_PASSWORD")
+                keyAlias System.getenv("SIGNING_KEY_ALIAS")
+                keyPassword System.getenv("SIGNING_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            shrinkResources false
+            if (System.getenv("SIGNING_KEYSTORE") != null && !System.getenv("SIGNING_KEYSTORE").isEmpty()) {
+                signingConfig signingConfigs.release
+            }
+        }
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            def name = "StreamFlex-${variant.versionName}"
+            if (variant.buildType.name == "debug") {
+                name = "${name}-debug"
+            }
+            outputFileName = "${name}.apk"
+        }
+    }
+}
