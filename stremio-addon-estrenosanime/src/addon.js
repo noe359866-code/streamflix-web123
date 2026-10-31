@@ -25,13 +25,13 @@ const { addonBuilder } = require('stremio-addon-sdk');
 const { BASE_URL, LANGS, CACHE_TTL, USER_AGENT } = require('./config');
 const providers = require('./providers');
 const { PROVIDERS, PROVIDERS_BY_ID } = providers;
-const { resolveEmbed, discoverViaAjax } = require('./extractors');
+const { resolveEmbedDetailed, discoverViaAjax, blockInfoFromError } = require('./extractors');
 const idmap = require('./idmap');
 const { detectLang, serverNameFromUrl, qualityFromUrl, withTimeout, hostOf } = require('./util');
 
 const manifest = {
   id: 'com.streamflex.estrenosanime',
-  version: '1.3.0',
+  version: '1.4.0',
   name: 'Anime Español Multi · Streams',
   description:
     '🎌 SOLO STREAMS de anime en español desde EstrenosAnime, InfinityAnime, AnimeJara, Latanime y AnimeD23 — 💬 Subtitulado, 🌎 Latino y 🇪🇸 Castellano. Sin catálogos propios y sin configurar nada: abre un anime desde Cinemeta o Kitsu y elige servidor.',
@@ -53,12 +53,12 @@ function entry(stream, lang, providerId, kind) {
   return { stream, langKey: lang ? lang.key : 'sub', providerIdx: providerIdx(providerId), kind };
 }
 
-function playableEntry({ provider, url, referer, lang, server, slug, episode, isMovie, sourceTitle }) {
+function playableEntry({ provider, url, referer, lang, server, slug, episode, isMovie, sourceTitle, note }) {
   const stream = {
     name: `${provider.name}\n${lang.emoji} ${lang.label}`,
     title:
       `▶️ ${server} · ${qualityFromUrl(url)}${isMovie ? '' : ` · Episodio ${episode}`}\n` +
-      `${sourceTitle ? `${sourceTitle} · ` : ''}Vídeo directo`,
+      `${sourceTitle ? `${sourceTitle} · ` : ''}${note || 'Vídeo directo'}`,
     url,
     behaviorHints: {
       notWebReady: true,
@@ -93,6 +93,36 @@ function sortEntries(entries, langOrder = ['lat', 'cast', 'sub']) {
     (a.kind - b.kind));
 }
 
+/** Nota honesta cuando el hosting (datacenter) no pudo resolver un embed. */
+function noteForResolution(result, embed) {
+  const host = (result && (result.blockedHost || result.host)) || hostOf(embed && embed.url) || 'este servidor';
+  if (result && result.blocked) {
+    const external = result.externalTried
+      ? ' También falló el resolver externo configurado.'
+      : ' Ábrelo desde tu conexión: suele funcionar fuera del datacenter.';
+    if (result.reason === 'geo') return `⛔ ${host} bloquea por país/región la IP del servidor.${external}`;
+    if (result.reason === 'rate-limit') return `⏳ ${host} limitó las peticiones del servidor (429).${external}`;
+    return `⛔ ${host} bloquea la IP del servidor (datacenter/anti-bots).${external}`;
+  }
+  if (result && ['timeout', 'fetch-error', 'empty-response', 'host-cooldown'].includes(result.reason)) {
+    return `⚠️ ${host} no respondió bien al servidor; se abre en su web.`;
+  }
+  if (result && result.reason === 'http-error') {
+    return 'Este servidor devolvió un error al hosting; se abre en su web.';
+  }
+  return 'Este servidor se reproduce en su web (no admite vídeo directo)';
+}
+
+function playableNoteForResolution(result) {
+  if (result && result.via === 'external-resolver') {
+    return 'Vídeo directo · resuelto fuera del datacenter';
+  }
+  if (result && result.ipBoundSuspected) {
+    return 'Vídeo directo · si falla, usa la opción externa del mismo servidor';
+  }
+  return 'Vídeo directo';
+}
+
 /**
  * Streams de UN trabajo (proveedor + slug + episodio [+ temporada]).
  * resolvedor siempre en Auto. Nunca lanza: si la web falla, devuelve la
@@ -110,6 +140,7 @@ async function getStreamsForJob({ providerId, slug, episode, season = null, isMo
     watch = await providers.getWatch(provider.id, slug, episode, fallbackLang, { season: season || 1, isMovie });
   } catch (err) {
     console.error(`[stream:${provider.id}] ${slug} ep${episode}: ${err.message}`);
+    const blocked = blockInfoFromError(err);
     entries.push(externalEntry({
       provider,
       url: watchUrl,
@@ -119,7 +150,9 @@ async function getStreamsForJob({ providerId, slug, episode, season = null, isMo
       isMovie,
       sourceTitle,
       kind: KIND.official,
-      note: 'No se pudo leer la página del episodio: se abre la web oficial',
+      note: blocked
+        ? `⛔ ${officialHost} bloquea la IP del servidor (datacenter/anti-bots): abre la web oficial con tu conexión`
+        : 'No se pudo leer la página del episodio: se abre la web oficial',
     }));
     return entries;
   }
@@ -146,15 +179,43 @@ async function getStreamsForJob({ providerId, slug, episode, season = null, isMo
   const MAX_RESOLVE = 5;
   const toResolve = embeds.slice(0, MAX_RESOLVE);
   const resolved = await Promise.allSettled(
-    toResolve.map((e) => withTimeout(resolveEmbed(e.url, watchUrl), 22000, null))
+    toResolve.map((e) => withTimeout(resolveEmbedDetailed(e.url, watchUrl), 32000, null))
   );
 
   toResolve.forEach((embed, i) => {
     const server = embed.name || serverNameFromUrl(embed.url, 'Servidor');
     const result = resolved[i] && resolved[i].status === 'fulfilled' ? resolved[i].value : null;
-    if (result && result.url) {
-      entries.push(playableEntry({ provider, url: result.url, referer: result.referer, lang: embed.lang, server, slug, episode, isMovie, sourceTitle }));
+    if (result && result.ok && result.url) {
+      entries.push(playableEntry({
+        provider,
+        url: result.url,
+        referer: result.referer,
+        lang: embed.lang,
+        server,
+        slug,
+        episode,
+        isMovie,
+        sourceTitle,
+        note: playableNoteForResolution(result),
+      }));
+      // Algunos enlaces directos van firmados con la IP que resolvió:
+      // dejamos también el embed externo como plan B del mismo servidor.
+      if (result.ipBoundSuspected) {
+        entries.push(externalEntry({
+          provider,
+          url: embed.url,
+          lang: embed.lang,
+          server,
+          episode,
+          isMovie,
+          sourceTitle,
+          note: 'Plan B: el directo puede ir amarrado a la IP que lo resolvió',
+        }));
+      }
     } else {
+      if (result && result.blocked) {
+        console.warn(`[stream:blocked:${provider.id}] ${result.host || hostOf(embed.url)} ${result.reason} (status ${result.status || '?'})`);
+      }
       entries.push(externalEntry({
         provider,
         url: embed.url,
@@ -163,7 +224,7 @@ async function getStreamsForJob({ providerId, slug, episode, season = null, isMo
         episode,
         isMovie,
         sourceTitle,
-        note: 'Este servidor se reproduce en su web (no admite vídeo directo)',
+        note: noteForResolution(result, embed),
       }));
     }
   });
@@ -342,4 +403,13 @@ builder.defineStreamHandler(async ({ type, id }) => {
   return finish(entries);
 });
 
-module.exports = { builder, manifest, getStreamsForSlug, getStreamsForJob, parseOwnStreamId, sortEntries };
+module.exports = {
+  builder,
+  manifest,
+  getStreamsForSlug,
+  getStreamsForJob,
+  parseOwnStreamId,
+  sortEntries,
+  noteForResolution,
+  playableNoteForResolution,
+};

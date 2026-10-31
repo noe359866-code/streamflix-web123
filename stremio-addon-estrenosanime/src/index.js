@@ -15,8 +15,8 @@ const { renderLanding } = require('./landing');
 const scraper = require('./scraper');
 const providers = require('./providers');
 const idmap = require('./idmap');
-const { resolveEmbed } = require('./extractors');
-const { DEBUG_ENABLED } = require('./config');
+const { resolveEmbedDetailed, getHostBlockSnapshot } = require('./extractors');
+const { DEBUG_ENABLED, EXTERNAL_RESOLVER_URL } = require('./config');
 
 const PORT = Number(process.env.PORT || 7000);
 const app = express();
@@ -39,6 +39,8 @@ app.get('/health', (_req, res) => {
     version: manifest.version,
     resources: manifest.resources,
     sources: providers.PROVIDERS.map((p) => ({ id: p.id, name: p.name, url: p.baseUrl })),
+    externalResolver: Boolean(EXTERNAL_RESOLVER_URL),
+    blockedHosts: getHostBlockSnapshot().length,
     time: new Date().toISOString(),
   });
 });
@@ -86,13 +88,23 @@ if (DEBUG_ENABLED) {
       const watch = await provider.getWatchRaw(slug, ep, { season, isMovie });
       const out = { ok: true, provider: providerId, slug, ep, season, watch };
       if (req.query.resolve === '1' && watch.embeds && watch.embeds[0]) {
-        out.resolvedFirstEmbed = await resolveEmbed(
+        out.resolvedFirstEmbed = await resolveEmbedDetailed(
           watch.embeds[0].url,
           watch.finalUrl || `${provider.baseUrl}/`
-        ).catch((e) => ({ error: e.message }));
+        ).catch((e) => ({ ok: false, error: e.message }));
       }
       return out;
     })
+  );
+
+  // /debug/hosts — reproductores que están bloqueando/enfriando a este hosting
+  app.get(
+    '/debug/hosts',
+    wrap(async () => ({
+      ok: true,
+      externalResolver: Boolean(EXTERNAL_RESOLVER_URL),
+      hosts: getHostBlockSnapshot(),
+    }))
   );
 
   // /debug/map?id=tt0388629:1:1&type=series — mapeo ID externo -> trabajos

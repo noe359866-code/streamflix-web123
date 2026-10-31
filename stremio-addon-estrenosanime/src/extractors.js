@@ -21,7 +21,17 @@
  *     (Stremio lo abre en el navegador), nunca se pierde.
  */
 
-const { BASE_URL, USER_AGENT, EMBED_TIMEOUT_MS, CACHE_TTL } = require('./config');
+const {
+  BASE_URL,
+  USER_AGENT,
+  EMBED_TIMEOUT_MS,
+  CACHE_TTL,
+  EXTERNAL_RESOLVER_URL,
+  EXTERNAL_RESOLVER_TOKEN,
+  EXTERNAL_RESOLVER_TIMEOUT_MS,
+  HOST_BLOCK_TTL_MS,
+  HOST_FAILURE_COOLDOWN_MS,
+} = require('./config');
 const { fetchText } = require('./http');
 const {
   findDirectMediaUrls,
@@ -288,44 +298,432 @@ function extractPackedMedia(html, baseForRelative = '') {
   return collectMediaRich(texts, baseForRelative)[0] || null;
 }
 
-/**
- * Intenta convertir un embed (iframe) en una URL directa reproducible.
- * Devuelve { url, referer } o null si no fue posible.
+/* ------------------------------------------------------------------ */
+/* Salud por host: bloqueos de IP de datacenter / anti-bots            */
+/* ------------------------------------------------------------------ */
+/*
+ * Cuando el addon corre en Beamup/Render/un VPS, algunos reproductores
+ * (VOE, Filemoon y familia) responden 403/captcha/geo-bloqueo a la IP
+ * del datacenter aunque el mismo embed abra bien desde la IP del
+ * usuario. Estrategia:
+ *  1. Detectar el bloqueo (HTTP + patrones anti-bot/geo/IP).
+ *  2. Abrir un "circuito" por host unos minutos para no perder tiempo
+ *     ni martillar al host en cada episodio.
+ *  3. Avisar a la capa de streams para ofrecer la vía externa con una
+ *     nota clara, y opcionalmente delegar en un resolver externo
+ *     residencial (EA_EXTERNAL_RESOLVER_URL, ver home-resolver.js).
+ * Un proxy de medios en el MISMO servidor no arreglaría esto (sigue
+ * saliendo por la IP bloqueada) y quemaría ancho de banda: por eso no
+ * se hace.
  */
-async function resolveEmbed(embedUrl, pageReferer = `${BASE_URL}/`, depth = 0) {
-  const host = hostOf(embedUrl);
-  const { text: html, finalUrl } = await fetchText(embedUrl, {
-    timeoutMs: EMBED_TIMEOUT_MS,
-    referer: pageReferer,
-    retries: 0,
-  });
-  if (!html) return null;
 
-  try {
-    if (/dood|ds2play|d0000d|do7go|d-s\.io/i.test(host)) {
-      const dood = await resolveDood(finalUrl || embedUrl, html);
-      if (dood) return { url: dood, referer: finalUrl || embedUrl };
-    }
-    if (/streamtape|strtape/i.test(host)) {
-      const st = resolveStreamtape(embedUrl, html);
-      if (st) return { url: st, referer: embedUrl };
-    }
-    if (/(^|\.)ok\.ru$/i.test(host)) {
-      const ok = resolveOkru(html);
-      if (ok) return { url: ok, referer: 'https://ok.ru/' };
-    }
-  } catch {
-    /* seguimos con la vía genérica */
+const hostHealth = new Map();
+
+function healthKey(urlOrHost) {
+  const raw = String(urlOrHost || '').trim();
+  if (!raw) return '';
+  const host = raw.includes('://') ? hostOf(raw) : raw.replace(/^www\./i, '').toLowerCase();
+  return host || raw.toLowerCase();
+}
+
+function recordHostSuccess(urlOrHost) {
+  const key = healthKey(urlOrHost);
+  if (!key) return null;
+  const entry = { host: key, state: 'ok', failures: 0, lastOkAt: Date.now() };
+  hostHealth.set(key, entry);
+  return entry;
+}
+
+function recordHostBlock(urlOrHost, info = {}, ttlMs = HOST_BLOCK_TTL_MS) {
+  const key = healthKey(urlOrHost);
+  if (!key) return null;
+  const prev = hostHealth.get(key);
+  const entry = {
+    host: key,
+    state: 'blocked',
+    kind: info.kind || classifyHost(urlOrHost),
+    reason: info.reason || 'blocked',
+    status: info.status || null,
+    failures: (prev && prev.failures ? prev.failures : 0) + 1,
+    lastBlockedAt: Date.now(),
+    blockedUntil: Date.now() + Math.max(0, Number(ttlMs) || 0),
+  };
+  hostHealth.set(key, entry);
+  return entry;
+}
+
+function recordHostFailure(urlOrHost, info = {}, ttlMs = HOST_FAILURE_COOLDOWN_MS) {
+  const key = healthKey(urlOrHost);
+  if (!key) return null;
+  const open = getHostBlock(key);
+  if (open && open.state === 'blocked') return open;
+  const prev = hostHealth.get(key);
+  const entry = {
+    host: key,
+    state: 'cooldown',
+    kind: info.kind || classifyHost(urlOrHost),
+    reason: info.reason || 'fetch-error',
+    status: info.status || null,
+    failures: (prev && prev.failures ? prev.failures : 0) + 1,
+    lastFailureAt: Date.now(),
+    blockedUntil: Date.now() + Math.max(0, Number(ttlMs) || 0),
+  };
+  hostHealth.set(key, entry);
+  return entry;
+}
+
+function getHostBlock(urlOrHost) {
+  const key = healthKey(urlOrHost);
+  if (!key) return null;
+  const entry = hostHealth.get(key);
+  if (!entry || entry.state === 'ok') return null;
+  if (!entry.blockedUntil || entry.blockedUntil <= Date.now()) {
+    hostHealth.delete(key);
+    return null;
   }
+  return { ...entry, retryAfterMs: entry.blockedUntil - Date.now() };
+}
 
-  const texts = [html, ...extractPackedScripts(html)];
-  const candidates = collectMediaCandidates(texts).filter(
-    (u) => !/\.jpg|\.png|\.vtt|\.srt/i.test(u)
-  );
-  if (candidates.length) {
-    return { url: candidates[0], referer: finalUrl || embedUrl };
+function getHostBlockSnapshot() {
+  return [...hostHealth.keys()].map((key) => getHostBlock(key)).filter(Boolean);
+}
+
+function clearHostHealth() {
+  hostHealth.clear();
+}
+
+const BLOCK_BODY_PATTERNS = [
+  ['antibot', /just a moment|checking your browser|cf-chl|challenges\.cloudflare|cloudflare turnstile/i],
+  ['antibot', /attention required[^<]*cloudflare|sorry, you have been blocked|you are unable to access|error 1020|access denied[^<]*cloudflare/i],
+  ['antibot', /ddos-guard|incapsula[^<]*incident|sucuri website firewall[^<]*access denied/i],
+  ['antibot', /verify you are human|are you a robot|bot verification|please complete the security check/i],
+  ['ip-block', /your ip(?: address)? (?:has been |was )?(?:blocked|banned)|ip address (?:blocked|banned)|direcci[oó]n ip[^<]*bloque|tu ip[^<]*bloque/i],
+  ['geo', /(?:video|content) is not available in your (?:country|region|location)|not available in your (?:country|region)|no est[aá] disponible en tu pa[ií]s/i],
+];
+
+/**
+ * Detecta si una respuesta parece un bloqueo al servidor (datacenter).
+ * Acepta looksBlocked({status, body|text|html, finalUrl}) o (status, body).
+ * Devuelve null o { blocked:true, reason, status }.
+ */
+function looksBlocked(input, maybeBody) {
+  const opts = input && typeof input === 'object'
+    ? input
+    : { status: input, body: maybeBody };
+  const status = Number(opts.status) || null;
+  const body = String(opts.body || opts.text || opts.html || '').slice(0, 30000);
+  const finalUrl = String(opts.finalUrl || opts.url || '');
+
+  if (/__cf_chl|cdn-cgi\/challenge-platform/i.test(finalUrl)) {
+    return { blocked: true, reason: 'antibot', status };
+  }
+  for (const [reason, re] of BLOCK_BODY_PATTERNS) {
+    if (re.test(body)) return { blocked: true, reason, status };
+  }
+  // Captchas desnudos: solo cuentan como bloqueo con status raro o
+  // acompañados de frases de verificación (evita falsos positivos).
+  if (/(g-recaptcha|h-captcha|cf-turnstile)/i.test(body)
+    && (status === 401 || status === 403 || status === 429 || status === 503 || /human|robot|verify|security check/i.test(body))) {
+    return { blocked: true, reason: 'antibot', status };
+  }
+  if (status === 429) return { blocked: true, reason: 'rate-limit', status };
+  if (status === 451) return { blocked: true, reason: 'geo', status };
+  if (status === 401 || status === 403 || status === 407) {
+    return { blocked: true, reason: `http-${status}`, status };
   }
   return null;
+}
+
+function blockInfoFromError(err) {
+  if (!err) return null;
+  return looksBlocked({
+    status: err.status,
+    body: err.bodySnippet || err.body || err.message || '',
+    finalUrl: err.finalUrl || err.url || '',
+  });
+}
+
+/** Enlaces firmados con la IP que resolvió (p. ej. Streamtape get_video?ip=). */
+function isIpBoundSuspected(url) {
+  const raw = String(url || '');
+  try {
+    const u = new URL(raw);
+    for (const key of u.searchParams.keys()) {
+      if (/^(ip|ipaddr|allowed_ip|iplock)$/i.test(key)) return true;
+    }
+    if (/\/get_video\b/i.test(u.pathname) && (u.searchParams.has('token') || u.searchParams.has('expires'))) return true;
+    return false;
+  } catch {
+    return /[?&](?:ip|ipaddr|allowed_ip|iplock)=/i.test(raw) || /\/get_video\?/i.test(raw);
+  }
+}
+
+function buildExternalResolverUrl(base, embedUrl, referer) {
+  if (!base) return '';
+  let u;
+  try { u = new URL(String(base)); } catch { return ''; }
+  if (!/\/resolve\/?$/i.test(u.pathname)) {
+    u.pathname = `${u.pathname.replace(/\/+$/, '')}/resolve`;
+  }
+  u.searchParams.set('url', embedUrl);
+  if (referer) u.searchParams.set('referer', referer);
+  return u.href;
+}
+
+function pickExternalResolverResult(data) {
+  const candidate = (data && (data.result || data.resolved || data)) || null;
+  if (!candidate || typeof candidate !== 'object') return null;
+  if (candidate.blocked) {
+    return { blocked: true, reason: candidate.reason || 'external-blocked', status: candidate.status || null };
+  }
+  const url = typeof candidate.url === 'string' ? candidate.url.trim() : '';
+  if (/^https?:\/\//i.test(url)) {
+    return { url, referer: candidate.referer || candidate.finalUrl || '' };
+  }
+  return null;
+}
+
+async function resolveViaExternalResolver(embedUrl, referer, opts = {}) {
+  const base = opts.externalResolverUrl !== undefined ? opts.externalResolverUrl : EXTERNAL_RESOLVER_URL;
+  const endpoint = buildExternalResolverUrl(base, embedUrl, referer);
+  if (!endpoint) return null;
+  const token = opts.externalResolverToken !== undefined ? opts.externalResolverToken : EXTERNAL_RESOLVER_TOKEN;
+  const timeoutMs = Number(opts.externalResolverTimeoutMs || EXTERNAL_RESOLVER_TIMEOUT_MS || 15000);
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(endpoint, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+        ...(token ? { Authorization: `Bearer ${token}`, 'X-Resolver-Token': token } : {}),
+      },
+    });
+    const text = await res.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch { data = null; }
+    if (!res.ok) return { ok: false, reason: 'external-http', status: res.status };
+    const picked = pickExternalResolverResult(data);
+    if (picked && picked.url && picked.url !== embedUrl) {
+      return { ok: true, url: picked.url, referer: picked.referer || embedUrl, via: 'external-resolver' };
+    }
+    if (picked && picked.blocked) return { ok: false, blocked: true, reason: picked.reason, status: picked.status };
+    return { ok: false, reason: 'external-not-found', status: res.status };
+  } catch (err) {
+    return { ok: false, reason: err.name === 'AbortError' ? 'external-timeout' : 'external-error', error: err.message };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function resolutionBase(inputUrl, embedUrl) {
+  return {
+    ok: false,
+    url: null,
+    referer: null,
+    inputUrl: inputUrl || embedUrl,
+    embedUrl,
+    finalUrl: null,
+    host: hostOf(embedUrl),
+    kind: classifyHost(embedUrl),
+    blocked: false,
+    reason: null,
+    status: null,
+    via: 'local',
+    ipBoundSuspected: false,
+    externalTried: false,
+  };
+}
+
+async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`, options = {}) {
+  const opts = typeof options === 'number' ? { depth: options } : (options || {});
+  const depth = Number(opts.depth) || 0;
+  const target = normalizeEmbedUrl(embedUrl);
+  const outcome = resolutionBase(embedUrl, target);
+
+  const open = getHostBlock(target);
+  if (open) {
+    outcome.blocked = open.state === 'blocked';
+    outcome.reason = open.state === 'blocked' ? 'circuit-open' : 'host-cooldown';
+    outcome.status = open.status || null;
+    outcome.retryAfterMs = open.retryAfterMs;
+    outcome.hostHealth = open;
+    return outcome;
+  }
+
+  let fetched;
+  try {
+    fetched = await fetchText(target, {
+      timeoutMs: EMBED_TIMEOUT_MS,
+      referer: pageReferer,
+      retries: 0,
+    });
+  } catch (err) {
+    const info = blockInfoFromError(err);
+    outcome.status = err.status || null;
+    outcome.error = err.message;
+    if (info) {
+      outcome.blocked = true;
+      outcome.reason = info.reason;
+      outcome.hostHealth = recordHostBlock(target, { ...info, kind: outcome.kind });
+    } else {
+      outcome.reason = err.name === 'AbortError' ? 'timeout' : 'fetch-error';
+      outcome.hostHealth = recordHostFailure(target, { reason: outcome.reason, status: outcome.status, kind: outcome.kind });
+    }
+    return outcome;
+  }
+
+  const { text: html, finalUrl, status } = fetched || {};
+  const effectiveUrl = finalUrl || target;
+  outcome.finalUrl = effectiveUrl;
+  outcome.status = status || null;
+  outcome.host = hostOf(effectiveUrl) || outcome.host;
+  outcome.kind = classifyHost(effectiveUrl) !== 'generic'
+    ? classifyHost(effectiveUrl)
+    : classifyHost(target);
+
+  if (!html) {
+    outcome.reason = 'empty-response';
+    outcome.hostHealth = recordHostFailure(effectiveUrl, { reason: outcome.reason, status, kind: outcome.kind });
+    return outcome;
+  }
+
+  const blockedInfo = looksBlocked({ status, body: html, finalUrl: effectiveUrl });
+  if (blockedInfo) {
+    outcome.blocked = true;
+    outcome.reason = blockedInfo.reason;
+    outcome.hostHealth = recordHostBlock(effectiveUrl, { ...blockedInfo, kind: outcome.kind });
+    return outcome;
+  }
+
+  let direct = null;
+  try {
+    switch (outcome.kind) {
+      case 'dood':
+        direct = await resolveDood(effectiveUrl, html);
+        break;
+      case 'streamtape':
+        direct = resolveStreamtape(target, html);
+        break;
+      case 'okru':
+        direct = resolveOkru(html);
+        break;
+      case 'voe':
+        direct = extractVoeMedia(html, effectiveUrl);
+        break;
+      case 'mixdrop':
+        direct = extractMixdropMedia(html);
+        break;
+      case 'sibnet':
+        direct = extractSibnetMedia(html, effectiveUrl);
+        break;
+      case 'filemoon':
+      case 'mp4upload':
+      case 'vidhide':
+      case 'yourupload':
+      default:
+        direct = extractPackedMedia(html, effectiveUrl);
+    }
+  } catch (err) {
+    const info = blockInfoFromError(err);
+    if (info) {
+      outcome.blocked = true;
+      outcome.reason = info.reason;
+      outcome.error = err.message;
+      outcome.hostHealth = recordHostBlock(effectiveUrl, { ...info, kind: outcome.kind });
+      return outcome;
+    }
+    outcome.dispatchError = err.message;
+  }
+
+  if (!direct) {
+    direct = collectMediaRich([html, ...extractPackedScripts(html)], effectiveUrl)[0] || null;
+  }
+
+  if (direct) {
+    recordHostSuccess(target);
+    if (effectiveUrl !== target) recordHostSuccess(effectiveUrl);
+    outcome.ok = true;
+    outcome.url = direct;
+    outcome.referer = outcome.kind === 'okru' ? 'https://ok.ru/' : effectiveUrl;
+    outcome.reason = null;
+    outcome.ipBoundSuspected = isIpBoundSuspected(direct);
+    return outcome;
+  }
+
+  // Agregadores tipo Multiserver: un iframe dentro de otro (1 nivel).
+  if (depth < 1) {
+    const iframeMatch = String(html).match(/<iframe[^>]+(?:src|data-src)=["']([^"']+)["']/i);
+    if (iframeMatch) {
+      const inner = absoluteUrl(iframeMatch[1], effectiveUrl);
+      if (inner && inner !== effectiveUrl && !/google|facebook|disqus/i.test(inner)) {
+        const nested = await resolveEmbedLocalDetailed(inner, effectiveUrl, { ...opts, depth: depth + 1 });
+        if (nested.ok) {
+          return { ...nested, inputUrl: embedUrl, embedUrl: target, nestedFrom: effectiveUrl };
+        }
+        if (nested.blocked) {
+          outcome.blocked = true;
+          outcome.reason = nested.reason;
+          outcome.blockedHost = nested.host;
+          outcome.status = nested.status || outcome.status;
+          return outcome;
+        }
+      }
+    }
+  }
+
+  outcome.reason = status && status >= 400 ? 'http-error' : 'not-found';
+  if (status && status >= 500) {
+    outcome.hostHealth = recordHostFailure(effectiveUrl, { reason: outcome.reason, status, kind: outcome.kind });
+  }
+  return outcome;
+}
+
+/**
+ * Resolución detallada de un embed. Devuelve siempre un objeto:
+ * { ok, url, referer, host, kind, blocked, reason, status, via, ... }.
+ * Si el hosting está bloqueado y hay resolver externo configurado,
+ * lo intenta desde esa otra IP antes de rendirse.
+ */
+async function resolveEmbedDetailed(embedUrl, pageReferer = `${BASE_URL}/`, options = {}) {
+  const opts = typeof options === 'number' ? { depth: options } : (options || {});
+  const local = await resolveEmbedLocalDetailed(embedUrl, pageReferer, opts);
+  if (local.ok || opts.allowExternal === false) return local;
+
+  const resolverBase = opts.externalResolverUrl !== undefined ? opts.externalResolverUrl : EXTERNAL_RESOLVER_URL;
+  const eligible = local.blocked || [
+    'circuit-open', 'host-cooldown', 'fetch-error', 'timeout', 'empty-response',
+  ].includes(local.reason);
+  if (!resolverBase || !eligible) return local;
+
+  local.externalTried = true;
+  const external = await resolveViaExternalResolver(local.embedUrl || embedUrl, pageReferer, opts);
+  if (external && external.ok) {
+    return {
+      ...local,
+      ok: true,
+      url: external.url,
+      referer: external.referer || local.embedUrl || embedUrl,
+      blocked: false,
+      localReason: local.reason,
+      reason: null,
+      via: 'external-resolver',
+      ipBoundSuspected: isIpBoundSuspected(external.url),
+    };
+  }
+  local.externalResult = external || null;
+  if (external && external.blocked) local.externalBlocked = true;
+  return local;
+}
+
+/**
+ * Compatibilidad: { url, referer } o null.
+ */
+async function resolveEmbed(embedUrl, pageReferer = `${BASE_URL}/`, options = {}) {
+  const result = await resolveEmbedDetailed(embedUrl, pageReferer, options);
+  return result && result.ok ? { url: result.url, referer: result.referer } : null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -466,6 +864,8 @@ module.exports = {
   collectMediaCandidates,
   collectMediaRich,
   resolveEmbed,
+  resolveEmbedDetailed,
+  resolveEmbedLocalDetailed,
   discoverViaAjax,
   extractEmbedsFromText,
   // resolvers por host (testeables)
@@ -479,5 +879,18 @@ module.exports = {
   resolveDood,
   resolveStreamtape,
   resolveOkru,
+  // bloqueos de datacenter / resolver externo (testeables)
+  looksBlocked,
+  blockInfoFromError,
+  isIpBoundSuspected,
+  recordHostSuccess,
+  recordHostBlock,
+  recordHostFailure,
+  getHostBlock,
+  getHostBlockSnapshot,
+  clearHostHealth,
+  buildExternalResolverUrl,
+  pickExternalResolverResult,
+  resolveViaExternalResolver,
   USER_AGENT,
 };

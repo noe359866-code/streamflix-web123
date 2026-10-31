@@ -83,10 +83,10 @@ jobs:
           for d in estrenosanime.net infinityanime.net animejara.com latanime.org animed23.com; do
             grep -q "$d" /tmp/health.json
           done
-          # Manifiesto SOLO-STREAM, v1.3.0, sin clave de configuración
+          # Manifiesto SOLO-STREAM, v1.4.0, sin clave de configuración
           curl -fsS http://127.0.0.1:7000/manifest.json > /tmp/manifest.json
           grep -q '"id":"com.streamflex.estrenosanime"' /tmp/manifest.json
-          grep -q '"version":"1.3.0"' /tmp/manifest.json
+          grep -q '"version":"1.4.0"' /tmp/manifest.json
           grep -q '"resources":\["stream"\]' /tmp/manifest.json
           grep -q '"catalogs":\[\]' /tmp/manifest.json
           for p in 'ea:' 'ia:' 'aj:' 'lt:' 'd23:'; do grep -q "$p" /tmp/manifest.json; done

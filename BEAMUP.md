@@ -23,6 +23,13 @@ El servidor ya cumple lo que pide Beamup: escucha en `process.env.PORT`
   (GitHub → *Settings → SSH and GPG keys*). Beamup sincroniza esas claves
   para autorizar el `git push`.
 
+> 🔐 Ojo: una clave privada **no se puede derivar** de la pública. Si ya
+> subiste una pública a GitHub, su privada correspondiente solo existe en
+> el equipo donde se generó el par. Para desplegar desde otro sitio hay
+> que crear un **par nuevo**: la pública va a GitHub y la privada a tu PC
+> (CLI) o al secreto `SSH_PRIVATE_KEY` del repo (GitHub Actions). Nunca
+> pegues una privada en un chat, issue o commit.
+
 ## Opción 1 — Beamup CLI (recomendada)
 
 Desde la **raíz de tu clon** de este repositorio:
@@ -68,12 +75,20 @@ Otros comandos útiles:
 beamup logs                         # ver logs en vivo
 beamup secrets DEBUG 0              # producción: oculta /debug/*
 beamup secrets EA_BASE_URL https://nuevo-dominio.example   # solo si una web se muda
+beamup secrets EA_EXTERNAL_RESOLVER_URL https://tu-tunel.example
+beamup secrets EA_EXTERNAL_RESOLVER_TOKEN un-secreto-largo
 beamup delete                       # borra el proyecto de Beamup
 ```
 
 Variables opcionales: `EA_BASE_URL`, `INF_BASE_URL`, `JARA_BASE_URL`,
 `LAT_BASE_URL`, `D23_BASE_URL`, `EA_TIMEOUT_MS`, `EA_EMBED_TIMEOUT_MS`,
 `EA_USER_AGENT`, `DEBUG`. No hace falta ninguna para funcionar.
+
+Si VOE/Filemoon/etc. bloquean la IP de Beamup, el addon lo detecta y lo
+avisa en Stremio; `/debug/hosts` muestra el host en circuito. Con las dos
+variables `EA_EXTERNAL_RESOLVER_*` de arriba, los embeds bloqueados se
+reintentan desde `stremio-addon-estrenosanime/scripts/home-resolver.js`
+corriendo en una IP residencial (ver el README del addon).
 
 ## Opción 2 — GitHub Actions (sin instalar el CLI)
 
@@ -118,7 +133,8 @@ usuario (dueño del repo) ya están fijados en el workflow.
   para Docker, pero Beamup no lo usa en este monorepo.
 - **Comprobar en producción**: `https://<tu-url>/health` debe listar las 5
   fuentes. Para depurar proveedores, deja `DEBUG` sin fijar al principio y
-  usa `/debug/search`, `/debug/watch` y `/debug/map` (ver el README del addon).
+  usa `/debug/search`, `/debug/watch`, `/debug/map` y `/debug/hosts`
+  (este último lista qué reproductores están bloqueando a Beamup).
 
 Documentación oficial:
 [Stremio Addon SDK — Deploying to Beamup](https://github.com/Stremio/stremio-addon-sdk/blob/master/docs/deploying/beamup.md) ·

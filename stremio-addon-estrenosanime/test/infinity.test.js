@@ -180,7 +180,8 @@ test('normalizeWatch: Estrenos hereda el idioma de la ficha; Infinity conserva l
   assert.equal(inf.directMedia[0].lang.key, 'sub');
 });
 
-test('manifest v1.3.0: SOLO stream, 5 proveedores, sin configurador', () => {
+test('manifest v1.4.0: SOLO stream, 5 proveedores, sin configurador', () => {
+  assert.equal(manifest.version, '1.4.0');
   assert.deepEqual(manifest.resources, ['stream']);
   assert.deepEqual(manifest.catalogs, []);
   for (const p of ['ea:', 'ia:', 'aj:', 'lt:', 'd23:']) {

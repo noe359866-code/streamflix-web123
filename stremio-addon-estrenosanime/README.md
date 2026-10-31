@@ -26,7 +26,8 @@ abre cualquier anime (Cinemeta, Kitsu…) y elige proveedor + idioma.
 | 🗣️ **3 idiomas** | Grupos por **proveedor + idioma** (orden: 🌎 Latino, 🇪🇸 Castellano, 💬 Sub) según lo que cada web publique |
 | 🔢 **Mapeo de episodios** | Traduce Temporada/Episodio al formato real de cada web: fichas por temporada, numeración absoluta (lista de Cinemeta) y **SxE** en AnimeJara |
 | 📺 **Servidores reales** | Filemoon, Voe, MP4Upload, VidHide, StreamWish, StreamTape, DoodStream, OK.ru, MixDrop, Sibnet… con **resolvers por reproductor**; directo dentro de Stremio cuando se puede, si no «↗️ Abrir en el navegador» |
-| 🧰 **Diagnóstico** | `/debug/map`, `/debug/watch?provider=…`, `/debug/search?provider=…` y CLI `scripts/probe.js` |
+| 🏠 **Si bloquean el datacenter** | Detecta 403/captcha/geo-bloqueo a la IP de Beamup/Render/VPS, abre circuito por host para no perder tiempo y puede delegar en un **resolver residencial** opcional (`EA_EXTERNAL_RESOLVER_URL`) |
+| 🧰 **Diagnóstico** | `/debug/map`, `/debug/watch?provider=…`, `/debug/search?provider=…`, `/debug/hosts` y CLI `scripts/probe.js` |
 
 > 📖 Investigación de las webs: **[INVESTIGACION.md](./INVESTIGACION.md)** (EstrenosAnime) ·
 > **[INVESTIGACION-INFINITY.md](./INVESTIGACION-INFINITY.md)** (InfinityAnime) ·
@@ -135,6 +136,37 @@ Sibnet y YourUpload— **siempre con caída al extractor genérico** (packer +
 búsqueda de medios, 1 nivel de iframe anidado, auto-descubrimiento AJAX).
 Lo no resuelto queda como enlace externo: nunca te quedas sin opción.
 
+### Si un reproductor bloquea la IP del hosting (datacenter)
+
+Es habitual que VOE/Filemoon y similares respondan `403`, captcha o
+geo-bloqueo a Beamup/Render/VPS aunque el mismo embed abra desde casa.
+El addon ahora:
+
+1. **Detecta el bloqueo** (401/403/407/429/451, Cloudflare/Turnstile,
+   DDoS-Guard, mensajes de IP/país) y lo muestra en Stremio como
+   «⛔ … bloquea la IP del servidor», ofreciendo abrir el embed con **tu**
+   conexión.
+2. **Abre un circuito por host** unos minutos (`/debug/hosts`) para no
+   perder tiempo resolviendo el mismo player bloqueado en cada episodio.
+3. Si algún enlace directo parece firmado con la IP que resolvió
+   (`get_video?...&ip=…`), deja también el embed externo como plan B.
+4. **Opcional:** puede delegar solo los embeds bloqueados a un resolver en
+   una IP residencial. Ejecuta `scripts/home-resolver.js` en tu PC/Raspberry,
+   exponlo con un túnel seguro y define en el despliegue:
+
+   ```bash
+   EA_EXTERNAL_RESOLVER_URL=https://tu-tunel.example
+   EA_EXTERNAL_RESOLVER_TOKEN=un-secreto-largo
+   ```
+
+   En casa: `RESOLVER_TOKEN=un-secreto-largo npm run resolver:home`
+   (escucha solo en `127.0.0.1:7199`; no es un proxy de vídeo).
+
+> Un proxy de medios en el **mismo** Beamup no solucionaría el bloqueo:
+> seguiría saliendo por la IP del datacenter y además consumiría su
+> ancho de banda. Por eso el respaldo es el navegador del usuario o un
+> resolver fuera del datacenter.
+
 ---
 
 ## 🧑‍💻 Desarrollo
@@ -169,7 +201,8 @@ src/
 ├── http.js            # fetch con cabeceras de navegador, timeouts y caché
 ├── config.js          # dominios y rutas verificadas de las 5 webs
 └── util.js            # idiomas, títulos/temporadas, IDs, helpers
-test/ (scraper · idmap · infinity · extra-providers) · scripts/probe.js
+test/ (scraper · idmap · infinity · extra-providers · beamup · bloqueos)
+scripts/probe.js · scripts/home-resolver.js (resolver residencial opcional)
 Dockerfile · docker-compose.yml · render.yaml · .env.example
 ```
 
@@ -188,9 +221,13 @@ Dockerfile · docker-compose.yml · render.yaml · .env.example
 | `D23_BASE_URL` | `https://animed23.com` | Dominio de AnimeD23 |
 | `EA_TIMEOUT_MS` / `EA_EMBED_TIMEOUT_MS` | `15000` / `12000` | Timeouts a webs y servidores |
 | `EA_USER_AGENT` | Chrome 126 | User-Agent de las peticiones |
+| `EA_EXTERNAL_RESOLVER_URL` | *(vacío)* | Resolver residencial opcional para embeds que bloquean el datacenter |
+| `EA_EXTERNAL_RESOLVER_TOKEN` | *(vacío)* | Token compartido con `scripts/home-resolver.js` |
+| `EA_HOST_BLOCK_TTL_MS` / `EA_HOST_FAILURE_COOLDOWN_MS` | `600000` / `60000` | Circuito por host ante bloqueos/fallos |
 | `DEBUG` | *(on)* | `0` = desactiva los `/debug/*` públicos |
 
-No hay interruptor de demo ni ajustes de usuario: no existen.
+No hay interruptor de demo ni ajustes de usuario en Stremio: no existen.
+Estas variables son solo del despliegue.
 
 ### Endpoints útiles
 
@@ -199,7 +236,8 @@ No hay interruptor de demo ni ajustes de usuario: no existen.
 | `/` | Portada de instalación |
 | `/manifest.json` | Manifiesto solo-stream |
 | `/stream/{type}/{id}.json` | **El único recurso de Stremio** |
-| `/health` | Estado + las 5 fuentes (Render/Docker) |
+| `/health` | Estado + las 5 fuentes + si hay resolver externo/hosts bloqueados |
+| `/debug/hosts` | Reproductores que están bloqueando/enfriando a este hosting |
 | `/debug/map?id=tt0388629:1:1&type=series` | Título, búsquedas y trabajos por proveedor |
 | `/debug/watch?provider=animejara&slug=black-clover&season=2&ep=3` | Servidores crudos (`&resolve=1` prueba el 1º) |
 | `/debug/search?q=One+Piece` | Resultados de los 5 proveedores (`&provider=latanime` para uno) |
@@ -232,7 +270,10 @@ Repórtalo con la salida de `/debug/map` para ese ID (se ve temporada vs.
 absoluto vs. SxE de AnimeJara) y se ajusta la heurística.
 
 **Solo ofrece «Abrir en el navegador».**
-Ese servidor no entregó vídeo directo en ese momento; la opción
+Ese servidor no entregó vídeo directo en ese momento. Si la nota dice
+«⛔ bloquea la IP del servidor», el player está rechazando el datacenter:
+desde tu navegador/TV suele abrir, `/debug/hosts` muestra qué host es y
+puedes activar el resolver residencial opcional (arriba). La opción
 «🌐 {web}» abre la página oficial del episodio con todos sus servidores.
 
 **¿Y si una web cambia de dominio?**
@@ -249,4 +290,4 @@ servidores de terceros que esas webs enlazan. Todos los títulos, imágenes y
 vídeos pertenecen a sus respectivos autores. Úsalo solo donde sea legal en
 tu país y, si te gusta un anime, apoya su lanzamiento oficial.
 
-Hecho con 💙 para la comunidad hispanohablante · v1.3.0 (solo-stream, 5 proveedores)
+Hecho con 💙 para la comunidad hispanohablante · v1.4.0 (solo-stream, 5 proveedores, anti-bloqueo de datacenter)

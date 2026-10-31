@@ -98,6 +98,28 @@ const SITE_TYPES = ['Pelicula', 'TV', 'OVA', 'ONA', 'Especial', 'Music'];
 
 const TIMEOUT_MS = Number(process.env.EA_TIMEOUT_MS || 15000);
 const EMBED_TIMEOUT_MS = Number(process.env.EA_EMBED_TIMEOUT_MS || 12000);
+
+// Respaldo si un reproductor (VOE, Filemoon, etc.) bloquea la IP del
+// datacenter donde corre el addon (Beamup/Render/VPS). Sin configurador
+// para el usuario de Stremio: son variables SOLO del despliegue.
+//
+// EA_EXTERNAL_RESOLVER_URL puede apuntar a `scripts/home-resolver.js`
+// corriendo en una IP residencial (PC/Raspberry con Cloudflare Tunnel
+// o Tailscale). Si el hosting recibe 403/captcha/geo-bloqueo al resolver
+// un embed, se le pide a ese resolver externo que lo intente desde su IP.
+const EXTERNAL_RESOLVER_URL = (
+  process.env.EA_EXTERNAL_RESOLVER_URL || process.env.RESOLVER_URL || ''
+).replace(/\/+$/, '');
+const EXTERNAL_RESOLVER_TOKEN =
+  process.env.EA_EXTERNAL_RESOLVER_TOKEN || process.env.RESOLVER_TOKEN || '';
+const EXTERNAL_RESOLVER_TIMEOUT_MS = Number(
+  process.env.EA_EXTERNAL_RESOLVER_TIMEOUT_MS || process.env.RESOLVER_TIMEOUT_MS || 15000
+);
+// Si un host nos bloquea, no lo martillamos en cada episodio: se abre un
+// "circuito" por host durante este tiempo y se ofrece la vía externa.
+const HOST_BLOCK_TTL_MS = Number(process.env.EA_HOST_BLOCK_TTL_MS || 10 * 60 * 1000);
+const HOST_FAILURE_COOLDOWN_MS = Number(process.env.EA_HOST_FAILURE_COOLDOWN_MS || 60 * 1000);
+
 // Reglas del proyecto: SIN datos demo y SIN configurador.
 const DEBUG_ENABLED = process.env.DEBUG !== '0';
 
@@ -124,6 +146,11 @@ module.exports = {
   SITE_TYPES,
   TIMEOUT_MS,
   EMBED_TIMEOUT_MS,
+  EXTERNAL_RESOLVER_URL,
+  EXTERNAL_RESOLVER_TOKEN,
+  EXTERNAL_RESOLVER_TIMEOUT_MS,
+  HOST_BLOCK_TTL_MS,
+  HOST_FAILURE_COOLDOWN_MS,
   DEBUG_ENABLED,
   CACHE_TTL,
 };

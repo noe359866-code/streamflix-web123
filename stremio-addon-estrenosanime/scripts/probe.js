@@ -21,7 +21,7 @@ const scraper = require('../src/scraper');
 const infinity = require('../src/infinity');
 const idmap = require('../src/idmap');
 const providers = require('../src/providers');
-const { resolveEmbed, classifyHost } = require('../src/extractors');
+const { resolveEmbedDetailed, classifyHost, getHostBlockSnapshot } = require('../src/extractors');
 const { ROUTES } = require('../src/config');
 
 function itemRow(i) {
@@ -112,10 +112,11 @@ async function main() {
       const out = { provider: providerId, slug, ep, season, isMovie, watchUrl: provider.watchUrl(slug, ep, { season, isMovie }), ...watch };
       if (args.includes('--resolve') && watch.embeds && watch.embeds[0]) {
         console.error(`Resolviendo primer embed (${classifyHost(watch.embeds[0].url)}): ${watch.embeds[0].url}`);
-        out.resolvedFirstEmbed = await resolveEmbed(
+        out.resolvedFirstEmbed = await resolveEmbedDetailed(
           watch.embeds[0].url,
           watch.finalUrl || `${provider.baseUrl}/`
-        ).catch((e) => ({ error: e.message }));
+        ).catch((e) => ({ ok: false, error: e.message }));
+        out.hostHealth = getHostBlockSnapshot();
       }
       print(out);
       break;
@@ -124,7 +125,12 @@ async function main() {
       const url = args[0];
       if (!url) throw new Error('Falta la URL del embed');
       const referer = args[1] || 'https://example.com/';
-      print({ embed: url, hostKind: classifyHost(url), resolved: await resolveEmbed(url, referer) });
+      print({
+        embed: url,
+        hostKind: classifyHost(url),
+        resolved: await resolveEmbedDetailed(url, referer),
+        hostHealth: getHostBlockSnapshot(),
+      });
       break;
     }
     default:
