@@ -7,7 +7,7 @@
  *   https://host/{JSON-codificado}/manifest.json
  */
 
-const { BASE_URL, DEMO_FALLBACK } = require('./config');
+const { BASE_URL, INF_BASE_URL, DEMO_FALLBACK } = require('./config');
 
 const STYLE = `
   :root { color-scheme: dark; }
@@ -62,17 +62,18 @@ function renderLanding({ base, manifest }) {
   const installUrl = manifestUrl.replace(/^https?:\/\//, 'stremio://');
   const webInstall = `https://web.stremio.com/#/addons?addon=${encodeURIComponent(manifestUrl)}`;
   const demoBadge = DEMO_FALLBACK
-    ? `<div class="badge-demo">⚠️ <b>Modo DEMO activado</b> en este servidor (sin salida directa a estrenosanime.net): los catálogos muestran datos reales de ejemplo. En un despliegue normal todo se lee en vivo de la web.</div>`
+    ? `<div class="badge-demo">⚠️ <b>Modo DEMO activado</b> en este servidor (sin salida directa a las webs fuente): se usan datos reales de ejemplo. En un despliegue normal todo se lee en vivo de estrenosanime.net e infinityanime.net.</div>`
     : '';
   return pageShell(
-    'Estrenos Anime ES · Addon para Stremio',
+    'Anime Español Multi · Addon para Stremio',
     `
     ${demoBadge}
     <div style="font-size:15px;color:#93c5fd;font-weight:700;letter-spacing:.08em">ADDON PARA STREMIO</div>
-    <h1>🌸 Estrenos Anime <span class="grad">en español</span></h1>
-    <p class="lead">Addon <b>solo de streams</b>: busca en <b>estrenosanime.net</b> el anime que abras desde cualquier otro catálogo de Stremio (Cinemeta, Kitsu…) y te ofrece sus servidores en español, leídos en vivo de la web. No añade catálogos ni fichas propias.</p>
+    <h1>🌸 Anime <span class="grad">en español</span></h1>
+    <p class="lead">Addon <b>solo de streams</b> con <b>dos proveedores</b>: busca en <b>estrenosanime.net</b> e <b>infinityanime.net</b> el anime que abras desde cualquier otro catálogo de Stremio (Cinemeta, Kitsu…) y te ofrece sus servidores en español, leídos en vivo de las webs. No añade catálogos ni fichas propias.</p>
     <div class="langs">
       <span class="chip">▶️ Solo streams</span>
+      <span class="chip">🌐 EstrenosAnime + InfinityAnime</span>
       <span class="chip">💬 Sub Español</span>
       <span class="chip">🌎 Español Latino</span>
       <span class="chip">🇪🇸 Castellano</span>
@@ -97,14 +98,14 @@ function renderLanding({ base, manifest }) {
         <div class="mini"><b>En 3 pasos</b><ul>
           <li>1️⃣ Instala este addon (botón de arriba).</li>
           <li>2️⃣ Abre un anime desde <b>cualquier catálogo</b> que ya tengas en Stremio (el oficial Cinemeta, Kitsu, etc.).</li>
-          <li>3️⃣ En la lista de fuentes del episodio elige <b>EstrenosAnime</b> con tu idioma: 💬 Sub · 🌎 Latino · 🇪🇸 Castellano.</li>
+          <li>3️⃣ En la lista de fuentes del episodio elige proveedor e idioma: <b>EstrenosAnime</b> o <b>InfinityAnime</b> · 💬 Sub · 🌎 Latino · 🇪🇸 Castellano.</li>
         </ul>
-        <p style="color:#72809d;font-size:13px;margin:0">IDs aceptados: IMDb <code>tt…</code> (Cinemeta), <code>kitsu:…</code> y <code>mal:…</code>. El addon busca el título en estrenosanime.net y mapea temporada/episodio a la ficha correcta de la web.</p></div>
-        <div class="mini"><b>Idiomas</b>
+        <p style="color:#72809d;font-size:13px;margin:0">IDs aceptados: IMDb <code>tt…</code> (Cinemeta), <code>kitsu:…</code> y <code>mal:…</code>. El addon busca el título en ambas webs y mapea temporada/episodio a la ficha correcta de cada una.</p></div>
+        <div class="mini"><b>Proveedores e idiomas</b>
         <ul>
-          <li>La web separa cada idioma como ficha distinta: «(Latino)», «(Castellano)» o sin sufijo = subtitulado.</li>
-          <li>Por eso puedes recibir hasta <b>3 grupos de streams</b> (uno por idioma disponible de ese título).</li>
-          <li>En <a href="/configure">⚙️ Configurar</a> puedes limitarlo a un solo idioma.</li>
+          <li><b>EstrenosAnime</b>: separa cada idioma como ficha distinta («(Latino)», «(Castellano)» o sin sufijo = Sub) — es quien aporta el <b>Castellano</b>.</li>
+          <li><b>InfinityAnime</b>: una ficha por título con grupos <i>Sub</i> y <i>Dub</i> (latino) en el mismo episodio.</li>
+          <li>En <a href="/configure">⚙️ Configurar</a> puedes limitar proveedores y/o idioma.</li>
         </ul>
         </div>
       </div>
@@ -113,11 +114,11 @@ function renderLanding({ base, manifest }) {
     <div class="card">
       <h2 style="margin-top:0">▶️ Reproducción</h2>
       <ul>
-        <li>Para cada episodio se leen los servidores reales de la web (normalmente <b>Multiserver</b>).</li>
+        <li>Para cada episodio se leen los servidores reales de cada web (Multiserver, Filemoon, Vidara, MP4Upload, StreamTape…).</li>
         <li>En modo <b>Auto</b> el addon intenta extraer el <b>vídeo directo</b> (.m3u8/.mp4) para reproducirlo dentro de Stremio; si un servidor no lo permite, aparece como <i>«↗️ Abrir en el navegador»</i>.</li>
-        <li>Siempre tendrás la opción <b>«🌐 estrenosanime.net»</b> con la página oficial del episodio.</li>
+        <li>Siempre tendrás las páginas oficiales del episodio: <b>«🌐 estrenosanime.net»</b> y/o <b>«🌐 infinityanime.net»</b>.</li>
       </ul>
-      <p style="color:#72809d;font-size:14px">Diagnóstico: <a href="/health">/health</a> · <a href="/debug/map?id=tt0388629:1:1&amp;type=series">/debug/map?id=tt0388629:1:1</a> · <a href="/debug/watch?slug=one-piece&amp;ep=1">/debug/watch?slug=one-piece&amp;ep=1</a> · Fuente: <a href="${BASE_URL}" target="_blank" rel="noopener">estrenosanime.net</a></p>
+      <p style="color:#72809d;font-size:14px">Diagnóstico: <a href="/health">/health</a> · <a href="/debug/map?id=tt0388629:1:1&amp;type=series">/debug/map</a> · <a href="/debug/watch?slug=one-piece&amp;ep=1">/debug/watch (Estrenos)</a> · <a href="/debug/watch?provider=infinity&amp;slug=one-piece-tv&amp;ep=1">/debug/watch (Infinity)</a> · Fuentes: <a href="${BASE_URL}" target="_blank" rel="noopener">estrenosanime.net</a> · <a href="${INF_BASE_URL}" target="_blank" rel="noopener">infinityanime.net</a></p>
     </div>
 
     <footer>Addon no oficial, sin ánimo de lucro. Ningún vídeo se aloja en este servidor: todo el contenido pertenece a sus respectivos autores y se enlaza desde estrenosanime.net (la propia web indica que tampoco aloja vídeos, solo enlaza contenido de terceros). Úsalo solo donde sea legal en tu país.<br><br>${manifest.name} v${manifest.version} · id: <code>${manifest.id}</code></footer>
@@ -127,19 +128,27 @@ function renderLanding({ base, manifest }) {
 
 function renderConfigure({ base }) {
   return pageShell(
-    '⚙️ Configurar · Estrenos Anime ES',
+    '⚙️ Configurar · Anime Español Multi',
     `
-    <h1 style="font-size:34px">⚙️ Configurar <span class="grad">Estrenos Anime ES</span></h1>
+    <h1 style="font-size:34px">⚙️ Configurar <span class="grad">Anime Español Multi</span></h1>
     <p class="lead">Elige tus preferencias y genera tu URL de instalación personalizada. Puedes volver aquí cuando quieras y reinstalar con otros ajustes.</p>
     <div class="card">
-      <label for="idioma">🌐 Idioma preferido</label>
+      <label for="proveedores">🌐 Proveedores</label>
+      <select id="proveedores">
+        <option value="Todos">Todos (EstrenosAnime + InfinityAnime)</option>
+        <option value="EstrenosAnime">Solo EstrenosAnime</option>
+        <option value="InfinityAnime">Solo InfinityAnime</option>
+      </select>
+      <p style="color:#72809d;font-size:13px;margin:6px 0 0">De qué webs quieres recibir streams. Con «Todos» verás un grupo por proveedor e idioma disponible.</p>
+
+      <label for="idioma">🗣️ Idioma preferido</label>
       <select id="idioma">
         <option value="Todos">Todos (Sub + Latino + Castellano)</option>
         <option value="Subtitulado">💬 Solo Subtitulado</option>
         <option value="Latino">🌎 Solo Español Latino</option>
         <option value="Castellano">🇪🇸 Solo Castellano</option>
       </select>
-      <p style="color:#72809d;font-size:13px;margin:6px 0 0">Limita qué idiomas se devuelven en la lista de streams. Con «Todos» verás un grupo por cada idioma disponible del título.</p>
+      <p style="color:#72809d;font-size:13px;margin:6px 0 0">Limita qué idiomas se devuelven. Nota: InfinityAnime ofrece Sub y Latino (Dub); el Castellano lo aporta EstrenosAnime.</p>
 
       <label for="resolver">▶️ Reproducción</label>
       <select id="resolver">
@@ -149,7 +158,7 @@ function renderConfigure({ base }) {
 
       <div class="check">
         <input type="checkbox" id="descargas">
-        <span>⬇️ Mostrar también los enlaces de <b>descarga</b> (Krakenfiles, Gofile, 1fichier…) como opciones externas</span>
+        <span>⬇️ Mostrar también los enlaces de <b>descarga</b> (Mega, 1fichier, Krakenfiles, Gofile…) como opciones externas</span>
       </div>
 
       <code class="url" id="out"></code>
@@ -164,6 +173,7 @@ function renderConfigure({ base }) {
       const base = ${JSON.stringify(base)};
       function build(){
         const cfg = {
+          proveedores: document.getElementById('proveedores').value,
           idioma: document.getElementById('idioma').value,
           resolver: document.getElementById('resolver').value
         };
@@ -173,7 +183,7 @@ function renderConfigure({ base }) {
         document.getElementById('out').textContent = url;
         document.getElementById('install').href = url.replace(/^https?:\\/\\//, 'stremio://');
       }
-      ['idioma','resolver','descargas'].forEach(id => document.getElementById(id).addEventListener('change', build));
+      ['proveedores','idioma','resolver','descargas'].forEach(id => document.getElementById(id).addEventListener('change', build));
       document.getElementById('copy').addEventListener('click', function(){
         navigator.clipboard.writeText(document.getElementById('out').textContent)
           .then(()=>{ this.textContent='✅ ¡Copiado!'; setTimeout(()=>this.textContent='📋 Copiar URL',1800); });

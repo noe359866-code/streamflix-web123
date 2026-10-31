@@ -10,6 +10,27 @@
 // definir la variable de entorno EA_BASE_URL (sin barra final).
 const BASE_URL = (process.env.EA_BASE_URL || 'https://estrenosanime.net').replace(/\/+$/, '');
 
+// Segundo proveedor: InfinityAnime (WordPress). Mirror conocido:
+// animeonline.lat — si el principal cae, define INF_BASE_URL.
+const INF_BASE_URL = (process.env.INF_BASE_URL || 'https://infinityanime.net').replace(/\/+$/, '');
+
+// Rutas verificadas de InfinityAnime (ver INVESTIGACION-INFINITY.md):
+//  - Ficha:      /{slug}/
+//  - Reproducir: /{slug}/episodio-{n}/
+//  - Buscador:   /directorio/?s_keyword={texto}  (filtro etiqueta[]=latino)
+//  - REST WP:    /wp-json/wp/v2/serie?search=  ·  /wp-json/wp/v2/episode
+const INF_ROUTES = {
+  directorioSearch: (q) => `/directorio/?s_keyword=${encodeURIComponent(q)}`,
+  directorioLatino: '/directorio/?s_keyword=&etiqueta%5B%5D=latino&orderby=date&order=DESC',
+  anime: (slug) => `/${slug}/`,
+  watch: (slug, ep) => `/${slug}/episodio-${ep}/`,
+  restSerieSearch: (q) =>
+    `/wp-json/wp/v2/serie?search=${encodeURIComponent(q)}&per_page=20&_fields=slug,title,link,class_list,etiqueta,tipo`,
+  restSerieBySlug: (slug) => `/wp-json/wp/v2/serie?slug=${encodeURIComponent(slug)}`,
+  restEpisodeBySlug: (slug, ep) =>
+    `/wp-json/wp/v2/episode?slug=${encodeURIComponent(`${slug}-episodio-${ep}`)}`,
+};
+
 const USER_AGENT =
   process.env.EA_USER_AGENT ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -82,8 +103,10 @@ const CACHE_TTL = {
 
 module.exports = {
   BASE_URL,
+  INF_BASE_URL,
   USER_AGENT,
   ROUTES,
+  INF_ROUTES,
   GENRES,
   LANGS,
   SITE_TYPES,

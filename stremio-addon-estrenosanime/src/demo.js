@@ -106,4 +106,31 @@ function demoMeta(slug) {
   return detailToMeta(detail);
 }
 
-module.exports = { DEMO_ITEMS, demoCatalogMetas, demoMeta, demoSearchItems, DEMO_IMDB_TITLES };
+// ---------------------------------------------------------------------------
+// Demo del proveedor InfinityAnime (datos reales observados en la web)
+// ---------------------------------------------------------------------------
+
+const DEMO_ITEMS_INF = [
+  { slug: 'one-piece-tv', title: 'One Piece', year: 1999, siteType: 'TV', epCurrent: 1180, status: 'Pausado', hasLat: true },
+  { slug: 'black-clover-2nd-season', title: 'Black Clover 2nd Season', year: 2026, siteType: 'TV', epCurrent: 4, status: 'En emisión', hasLat: false },
+  { slug: 'black-clover', title: 'Black Clover', year: 2017, siteType: 'TV', epCurrent: 170, status: 'Finalizado', hasLat: false },
+  { slug: 'temppal-item-no-chikara', title: 'Temppal: Item no Chikara', year: 2026, siteType: 'TV', epCurrent: 12, status: 'Finalizado', hasLat: true },
+  { slug: 'tamako-love-story', title: 'Tamako Love Story', year: 2014, siteType: 'Pelicula', epCurrent: 1, status: 'Finalizado', hasLat: false },
+].map((i) => ({
+  provider: 'infinity',
+  poster: null,
+  url: `https://infinityanime.net/${i.slug}/`,
+  source: 'demo',
+  text: '',
+  ...i,
+}));
+
+function demoSearchItemsInf(query) {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return DEMO_ITEMS_INF.slice();
+  return DEMO_ITEMS_INF.filter(
+    (i) => i.title.toLowerCase().includes(q) || i.slug.includes(q.replace(/\s+/g, '-')),
+  );
+}
+
+module.exports = { DEMO_ITEMS, demoCatalogMetas, demoMeta, demoSearchItems, DEMO_IMDB_TITLES, DEMO_ITEMS_INF, demoSearchItemsInf };

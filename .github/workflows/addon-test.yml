@@ -63,9 +63,11 @@ jobs:
           # catalog/meta NO deben existir como recursos
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7000/catalog/series/ea-series-popular.json)" = "404"
           test "$(curl -s -o /dev/null -w '%{http_code}' 'http://127.0.0.1:7000/meta/series/ea%3Aone-piece.json')" = "404"
-          # Stream desde un ID de IMDb (One Piece) y desde un id propio ea:
+          # Stream desde un ID de IMDb (One Piece): deben responder AMBOS proveedores
           curl -fsS "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q '"streams"'
           curl -fsS "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q 'estrenosanime.net/ver/'
-          curl -fsS "http://127.0.0.1:7000/debug/map?id=tt0388629:1:1&type=series" | grep -q '"jobs"'
+          curl -fsS "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q 'infinityanime.net/'
+          curl -fsS "http://127.0.0.1:7000/debug/map?id=tt0388629:1:1&type=series" | grep -q '"provider":"infinity"'
+          curl -fsS "http://127.0.0.1:7000/stream/series/ia%3Aone-piece-tv%3A1%3A1.json" | grep -q 'infinityanime.net/one-piece-tv/episodio-1/'
           curl -fsS -o /dev/null -w "landing %{http_code}\n" http://127.0.0.1:7000/
-          echo "OK: manifiesto solo-stream, sin catalog/meta, streams por IMDb responden"
+          echo "OK: manifiesto solo-stream, sin catalog/meta, streams de EstrenosAnime + InfinityAnime"

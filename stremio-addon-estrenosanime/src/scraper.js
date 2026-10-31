@@ -692,6 +692,9 @@ module.exports = {
   parseListing,
   parseDetail,
   parseWatch,
+  // helpers genéricos reutilizados por el proveedor InfinityAnime
+  scanElementForUrls,
+  spacedText,
   itemToMetaPreview,
   detailToMeta,
   slugFromHref,

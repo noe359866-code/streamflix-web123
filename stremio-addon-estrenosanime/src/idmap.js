@@ -12,8 +12,9 @@
  *   - Propio (compat) : ea:{slug}[:1:{ep}]   (lo resuelve addon.js)
  *
  * Flujo: ID externo -> título(s) + año [+ lista de episodios de Cinemeta]
- *        -> búsqueda en estrenosanime.net -> 1 candidato por idioma
- *        (Sub/Latino/Castellano) -> nº de episodio en la web.
+ *        -> búsqueda en CADA proveedor activo -> trabajos de stream:
+ *          · EstrenosAnime: 1 candidato por idioma (Sub/Latino/Castellano)
+ *          · InfinityAnime: la mejor ficha única (Sub+Dub en el episodio)
  *
  * El nº de episodio es lo delicado: la web publica cada temporada como
  * ficha aparte ("... Temporada 2 (Latino)") con numeración propia, pero
@@ -26,7 +27,7 @@
 
 const { DEMO_FALLBACK } = require('./config');
 const { fetchText } = require('./http');
-const scraper = require('./scraper');
+const { PROVIDERS_BY_ID } = require('./providers');
 const demo = require('./demo');
 const {
   titleTokens,
@@ -197,6 +198,7 @@ function pickJobsByLang(items, ctx, langOrder = ['lat', 'cast', 'sub']) {
     // claros (tipo equivocado hunde la puntuación por debajo del umbral).
     if (top.score < 10 && !(top.position < 3 && top.score > -40)) continue;
     jobs.push({
+      provider: 'estrenos',
       slug: top.item.slug,
       episode: top.episode,
       lang: top.item.lang,
@@ -207,16 +209,49 @@ function pickJobsByLang(items, ctx, langOrder = ['lat', 'cast', 'sub']) {
   return jobs;
 }
 
+/**
+ * Para proveedores «multi-idioma por ficha» (InfinityAnime): elige la
+ * mejor ficha única; los idiomas se averiguan luego en la página del
+ * episodio (grupos Sub/Dub y descargas).
+ */
+function pickSingleJob(items, ctx, providerId = 'infinity') {
+  const candidates = items
+    .map((item, position) => ({
+      item,
+      position,
+      episode: episodeForCandidate(item, ctx),
+      score: scoreCandidate(item, ctx, position),
+    }))
+    .filter((c) => c.episode && c.episode >= 1);
+  candidates.sort((a, b) => b.score - a.score);
+  const top = candidates[0];
+  if (!top) return null;
+  if (top.score < 10 && !(top.position < 3 && top.score > -40)) return null;
+  return {
+    provider: providerId,
+    slug: top.item.slug,
+    episode: top.episode,
+    lang: null, // multi-idioma: se resuelve en el watch
+    hasLat: Boolean(top.item.hasLat),
+    title: top.item.title,
+    score: top.score,
+  };
+}
+
 /* ------------------------------------------------------------------ */
 /* Resolución completa ID externo -> trabajos de stream                */
 /* ------------------------------------------------------------------ */
 
-async function searchSite(query) {
+async function searchProvider(providerId, query) {
   try {
-    return await scraper.searchItems(query);
+    return await PROVIDERS_BY_ID[providerId].search(query);
   } catch (err) {
-    if (DEMO_FALLBACK) return demo.demoSearchItems(query);
-    console.error(`[idmap] buscar "${query}": ${err.message}`);
+    if (DEMO_FALLBACK) {
+      return providerId === 'infinity'
+        ? demo.demoSearchItemsInf(query)
+        : demo.demoSearchItems(query);
+    }
+    console.error(`[idmap] buscar "${query}" en ${providerId}: ${err.message}`);
     return [];
   }
 }
@@ -228,7 +263,7 @@ function ordinalEn(n) {
   return `${n}th`;
 }
 
-async function resolveExternal(parsed, type, { langOrder } = {}) {
+async function resolveExternal(parsed, type, { langOrder, providers: providerIds } = {}) {
   let info;
   try {
     info = await fetchExternalInfo(parsed, type);
@@ -266,16 +301,30 @@ async function resolveExternal(parsed, type, { langOrder } = {}) {
   }
   if (titles[1]) addQuery(titles[1]);
 
-  const bySlug = new Map();
-  const results = await Promise.allSettled(queries.slice(0, 4).map(searchSite));
-  for (const r of results) {
-    if (r.status !== 'fulfilled') continue;
-    for (const item of r.value) {
-      if (!bySlug.has(item.slug)) bySlug.set(item.slug, item);
+  const active = Array.isArray(providerIds) && providerIds.length
+    ? providerIds
+    : ['estrenos', 'infinity'];
+  const queriesUsed = queries.slice(0, 4);
+  const perProvider = await Promise.all(active.map(async (providerId) => {
+    const bySlug = new Map();
+    const results = await Promise.allSettled(
+      queriesUsed.map((q) => searchProvider(providerId, q)),
+    );
+    for (const r of results) {
+      if (r.status !== 'fulfilled') continue;
+      for (const item of r.value) {
+        if (!bySlug.has(item.slug)) bySlug.set(item.slug, item);
+      }
     }
-  }
-  const jobs = pickJobsByLang([...bySlug.values()], ctx, langOrder);
-  return { title: titles[0], titles, ctx, queries: queries.slice(0, 4), jobs };
+    const items = [...bySlug.values()];
+    if (providerId === 'infinity') {
+      const job = pickSingleJob(items, ctx, providerId);
+      return job ? [job] : [];
+    }
+    return pickJobsByLang(items, ctx, langOrder);
+  }));
+  const jobs = perProvider.flat();
+  return { title: titles[0], titles, ctx, queries: queriesUsed, providers: active, jobs };
 }
 
 module.exports = {
@@ -284,5 +333,7 @@ module.exports = {
   episodeForCandidate,
   scoreCandidate,
   pickJobsByLang,
+  pickSingleJob,
+  searchProvider,
   resolveExternal,
 };
