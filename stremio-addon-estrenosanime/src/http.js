@@ -2,6 +2,7 @@
 
 const { BASE_URL, USER_AGENT, TIMEOUT_MS, CACHE_TTL } = require('./config');
 const { TtlCache, sleep } = require('./util');
+const { clientIpHeaders, hashIp } = require('./request-context');
 
 const pageCache = new TtlCache(800);
 
@@ -22,10 +23,15 @@ async function fetchText(url, options = {}) {
     retries = 1,
     useCache = false,
     cacheTtl = CACHE_TTL.page,
+    // Solo para el reintento anti-bloqueo: señala la IP del solicitante.
+    // No cambia la IP TCP saliente; ver request-context.js.
+    clientIp = '',
   } = options;
 
+  // Una respuesta obtenida señalando una IP no debe reutilizarse para otra.
+  const cacheKey = clientIp ? `${url}\nxff:${hashIp(clientIp)}` : url;
   if (useCache) {
-    const cached = pageCache.get(url);
+    const cached = pageCache.get(cacheKey);
     if (cached) return cached;
   }
 
@@ -43,6 +49,7 @@ async function fetchText(url, options = {}) {
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'es-ES,es;q=0.9,en;q=0.6',
           Referer: referer,
+          ...clientIpHeaders(clientIp),
           ...headers,
         },
       });
@@ -57,7 +64,7 @@ async function fetchText(url, options = {}) {
         throw err;
       }
       if (useCache && res.status >= 200 && res.status < 300) {
-        pageCache.set(url, result, cacheTtl);
+        pageCache.set(cacheKey, result, cacheTtl);
       }
       return result;
     } catch (err) {

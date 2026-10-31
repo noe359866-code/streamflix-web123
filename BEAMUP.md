@@ -82,13 +82,19 @@ beamup delete                       # borra el proyecto de Beamup
 
 Variables opcionales: `EA_BASE_URL`, `INF_BASE_URL`, `JARA_BASE_URL`,
 `LAT_BASE_URL`, `D23_BASE_URL`, `EA_TIMEOUT_MS`, `EA_EMBED_TIMEOUT_MS`,
-`EA_USER_AGENT`, `DEBUG`. No hace falta ninguna para funcionar.
+`EA_USER_AGENT`, `DEBUG`, `EA_FORWARD_CLIENT_IP`, `EA_TRUST_PROXY`.
+No hace falta ninguna para funcionar.
 
-Si VOE/Filemoon/etc. bloquean la IP de Beamup, el addon lo detecta y lo
-avisa en Stremio; `/debug/hosts` muestra el host en circuito. Con las dos
-variables `EA_EXTERNAL_RESOLVER_*` de arriba, los embeds bloqueados se
-reintentan desde `stremio-addon-estrenosanime/scripts/home-resolver.js`
-corriendo en una IP residencial (ver el README del addon).
+Si VOE/Filemoon/etc. bloquean la IP de Beamup, el addon lo detecta y, antes
+de rendirse, reintenta una vez **señalando la IP pública de quien pide el
+stream** con `X-Forwarded-For` (el nginx de Dokku ya la pasa; no hay que
+configurar nada). Beamup no puede emitir con la IP TCP de la casa de cada
+usuario, así que ese paso es *best effort*: funciona con los reproductores
+que deciden por cabecera, no con los que miran la IP real. Se apaga con
+`beamup secrets EA_FORWARD_CLIENT_IP 0`. Además, `/debug/hosts` muestra qué
+host está en circuito, y con las dos variables `EA_EXTERNAL_RESOLVER_*` los
+embeds bloqueados se reintentan **desde** una IP residencial real
+(`stremio-addon-estrenosanime/scripts/home-resolver.js`, ver el README).
 
 ## Opción 2 — GitHub Actions (sin instalar el CLI)
 

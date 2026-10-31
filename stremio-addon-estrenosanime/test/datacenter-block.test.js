@@ -12,6 +12,7 @@ const assert = require('node:assert/strict');
 const extractors = require('../src/extractors');
 const { noteForResolution, playableNoteForResolution } = require('../src/addon');
 const homeResolver = require('../scripts/home-resolver');
+const requestContext = require('../src/request-context');
 
 const originalFetch = global.fetch;
 
@@ -114,6 +115,115 @@ test('resolveEmbedDetailed: si el datacenter está bloqueado, delega al resolver
     assert.equal(outcome.url, 'https://cdn.example/desde-casa/video.m3u8');
     assert.equal(resolverAuthorization, 'Bearer secreto-de-prueba');
     assert.match(playableNoteForResolution(outcome), /fuera del datacenter/);
+  } finally {
+    restoreFetch();
+  }
+});
+
+test('request-context: IP del solicitante sin fiarse de X-Forwarded-For directo', async () => {
+  const throughProxy = {
+    headers: { 'x-forwarded-for': '45.67.89.10, 172.17.0.1' },
+    socket: { remoteAddress: '172.17.0.1' }, // nginx de Dokku/Beamup
+  };
+  assert.equal(requestContext.parseClientIp(throughProxy), '45.67.89.10');
+
+  const directSpoof = {
+    headers: { 'x-forwarded-for': '45.67.89.10' },
+    socket: { remoteAddress: '91.204.10.5' }, // conexión directa: no se cree la cabecera
+  };
+  assert.equal(requestContext.parseClientIp(directSpoof), '91.204.10.5');
+
+  const lanOnly = { headers: {}, socket: { remoteAddress: '192.168.1.20' } };
+  assert.equal(requestContext.parseClientIp(lanOnly), ''); // LAN: no hay IP pública que señalar
+  assert.deepEqual(requestContext.clientIpHeaders('192.168.1.20'), {});
+  assert.equal(requestContext.clientIpHeaders('45.67.89.10')['X-Forwarded-For'], '45.67.89.10');
+
+  await requestContext.runWithRequestContext({ clientIp: '45.67.89.10' }, async () => {
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(requestContext.getClientIp(), '45.67.89.10');
+  });
+  assert.equal(requestContext.getClientIp(), ''); // el contexto no se fuga entre peticiones
+});
+
+test('resolveEmbedDetailed: tras el bloqueo reintenta señalando la IP del solicitante', async () => {
+  extractors.clearHostHealth();
+  const seen = [];
+  global.fetch = async (url, opts = {}) => {
+    const headers = (opts && opts.headers) || {};
+    seen.push(headers);
+    if (headers['X-Forwarded-For'] === '45.67.89.10') {
+      return fakeResponse(
+        200,
+        String(url),
+        '<script type="application/ld+json">{"@type":"VideoObject","contentUrl":"https://cdn.example/con-tu-ip/master.m3u8"}</script>'
+      );
+    }
+    return fakeResponse(403, String(url), '<title>Just a moment...</title> cf-chl');
+  };
+  try {
+    const outcome = await extractors.resolveEmbedDetailed(
+      'https://voe.sx/e/conip123456',
+      'https://proveedor.example/ver',
+      { clientIp: '45.67.89.10' }
+    );
+    assert.equal(outcome.ok, true);
+    assert.equal(outcome.via, 'client-ip-forwarding');
+    assert.equal(outcome.clientIpTried, true);
+    assert.equal(outcome.localReason, 'antibot');
+    assert.equal(outcome.url, 'https://cdn.example/con-tu-ip/master.m3u8');
+    assert.equal(seen.length, 2); // 1 normal + 1 con la IP señalada
+    assert.equal(seen[0]['X-Forwarded-For'], undefined); // la IP no se manda "por si acaso"
+    assert.equal(seen[1]['X-Real-IP'], '45.67.89.10');
+    assert.match(playableNoteForResolution(outcome), /señalando tu IP/);
+    // El éxito con tu IP NO marca el host sano para el resto de usuarios.
+    assert.ok(extractors.getHostBlock('https://voe.sx/e/otro'));
+  } finally {
+    restoreFetch();
+  }
+});
+
+test('resolveEmbedDetailed: el reintento con tu IP no se repite por episodio ni se comparte', async () => {
+  extractors.clearHostHealth();
+  let calls = 0;
+  global.fetch = async (url) => {
+    calls += 1;
+    return fakeResponse(403, String(url), '<title>Just a moment...</title> cf-chl');
+  };
+  try {
+    const first = await extractors.resolveEmbedDetailed(
+      'https://voe.sx/e/uno1234567',
+      'https://proveedor.example/ver',
+      { clientIp: '45.67.89.10' }
+    );
+    assert.equal(first.blocked, true);
+    assert.equal(first.clientIpTried, true);
+    assert.equal(calls, 2); // normal + reintento
+    assert.match(noteForResolution(first, { url: 'https://voe.sx/e/uno1234567' }), /señalando tu IP pública/);
+
+    const second = await extractors.resolveEmbedDetailed(
+      'https://voe.sx/e/dos1234567',
+      'https://proveedor.example/ver',
+      { clientIp: '45.67.89.10' }
+    );
+    assert.equal(second.reason, 'circuit-open');
+    assert.equal(second.clientIpTried, false); // mismo usuario+host: ya se probó
+    assert.equal(calls, 2);
+
+    const otherUser = await extractors.resolveEmbedDetailed(
+      'https://voe.sx/e/tres123456',
+      'https://proveedor.example/ver',
+      { clientIp: '78.141.20.9' }
+    );
+    assert.equal(otherUser.clientIpTried, true); // otro usuario sí prueba con la suya
+    assert.equal(calls, 3);
+
+    const optedOut = await extractors.resolveEmbedDetailed(
+      'https://voe.sx/e/cuatro12345',
+      'https://proveedor.example/ver',
+      { clientIp: '84.17.33.21', forwardClientIp: false }
+    );
+    assert.equal(optedOut.clientIpTried, false); // EA_FORWARD_CLIENT_IP=0 / opt-out
+    assert.equal(calls, 3);
   } finally {
     restoreFetch();
   }

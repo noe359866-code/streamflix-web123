@@ -16,11 +16,22 @@ const scraper = require('./scraper');
 const providers = require('./providers');
 const idmap = require('./idmap');
 const { resolveEmbedDetailed, getHostBlockSnapshot } = require('./extractors');
-const { DEBUG_ENABLED, EXTERNAL_RESOLVER_URL } = require('./config');
+const { parseClientIp, runWithRequestContext } = require('./request-context');
+const { DEBUG_ENABLED, EXTERNAL_RESOLVER_URL, FORWARD_CLIENT_IP, TRUST_PROXY } = require('./config');
 
 const PORT = Number(process.env.PORT || 7000);
 const app = express();
 app.disable('x-powered-by');
+if (TRUST_PROXY) app.set('trust proxy', true);
+
+// Contexto efímero por petición: permite que, SOLO si un reproductor
+// bloquea la IP del datacenter, el resolver reintente señalando la IP
+// pública de quien pidió el stream (X-Forwarded-For). No se almacena
+// en disco, no se loguea y desaparece al terminar la petición.
+app.use((req, res, next) => runWithRequestContext(
+  { clientIp: parseClientIp(req, { trustProxy: TRUST_PROXY }) },
+  next
+));
 
 function requestBase(req) {
   const proto =
@@ -40,6 +51,7 @@ app.get('/health', (_req, res) => {
     resources: manifest.resources,
     sources: providers.PROVIDERS.map((p) => ({ id: p.id, name: p.name, url: p.baseUrl })),
     externalResolver: Boolean(EXTERNAL_RESOLVER_URL),
+    clientIpRetry: Boolean(FORWARD_CLIENT_IP),
     blockedHosts: getHostBlockSnapshot().length,
     time: new Date().toISOString(),
   });
@@ -103,6 +115,7 @@ if (DEBUG_ENABLED) {
     wrap(async () => ({
       ok: true,
       externalResolver: Boolean(EXTERNAL_RESOLVER_URL),
+      clientIpRetry: Boolean(FORWARD_CLIENT_IP),
       hosts: getHostBlockSnapshot(),
     }))
   );

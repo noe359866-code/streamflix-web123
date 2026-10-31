@@ -28,33 +28,7 @@ const net = require('node:net');
 const express = require('express');
 const { resolveEmbedDetailed } = require('../src/extractors');
 const { EXTERNAL_RESOLVER_TOKEN } = require('../src/config');
-
-function isPrivateIp(hostname) {
-  const host = String(hostname || '').toLowerCase();
-  const version = net.isIP(host);
-  if (!version) return false;
-  if (version === 4) {
-    const parts = host.split('.').map((n) => parseInt(n, 10));
-    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return true;
-    const [a, b] = parts;
-    return a === 0 || a === 10 || a === 127
-      || (a === 169 && b === 254)
-      || (a === 172 && b >= 16 && b <= 31)
-      || (a === 192 && b === 168)
-      || (a === 100 && b >= 64 && b <= 127)
-      || (a === 192 && b === 0)
-      || (a === 198 && (b === 18 || b === 19 || b === 51))
-      || (a === 203 && b === 0)
-      || a >= 224;
-  }
-  const h = host.replace(/%.*$/, '');
-  if (h === '::' || h === '::1') return true;
-  if (h.startsWith('::ffff:')) return isPrivateIp(h.slice('::ffff:'.length));
-  return /^f[cd]/.test(h) // fc00::/7
-    || /^fe[89ab]/.test(h) // fe80::/10
-    || h.startsWith('ff') // multicast
-    || h.startsWith('2001:db8:');
-}
+const { isPrivateIp } = require('../src/request-context');
 
 function isPublicHttpUrl(raw) {
   let u;

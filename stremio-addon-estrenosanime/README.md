@@ -26,7 +26,7 @@ abre cualquier anime (Cinemeta, Kitsu…) y elige proveedor + idioma.
 | 🗣️ **3 idiomas** | Grupos por **proveedor + idioma** (orden: 🌎 Latino, 🇪🇸 Castellano, 💬 Sub) según lo que cada web publique |
 | 🔢 **Mapeo de episodios** | Traduce Temporada/Episodio al formato real de cada web: fichas por temporada, numeración absoluta (lista de Cinemeta) y **SxE** en AnimeJara |
 | 📺 **Servidores reales** | Filemoon, Voe, MP4Upload, VidHide, StreamWish, StreamTape, DoodStream, OK.ru, MixDrop, Sibnet… con **resolvers por reproductor**; directo dentro de Stremio cuando se puede, si no «↗️ Abrir en el navegador» |
-| 🏠 **Si bloquean el datacenter** | Detecta 403/captcha/geo-bloqueo a la IP de Beamup/Render/VPS, abre circuito por host para no perder tiempo y puede delegar en un **resolver residencial** opcional (`EA_EXTERNAL_RESOLVER_URL`) |
+| 🏠 **Si bloquean el datacenter** | Detecta 403/captcha/geo-bloqueo a la IP de Beamup/Render/VPS, reintenta **señalando la IP pública de quien pide el stream** (`X-Forwarded-For`, best effort), abre circuito por host para no perder tiempo y puede delegar en un **resolver residencial** opcional (`EA_EXTERNAL_RESOLVER_URL`) |
 | 🧰 **Diagnóstico** | `/debug/map`, `/debug/watch?provider=…`, `/debug/search?provider=…`, `/debug/hosts` y CLI `scripts/probe.js` |
 
 > 📖 Investigación de las webs: **[INVESTIGACION.md](./INVESTIGACION.md)** (EstrenosAnime) ·
@@ -146,13 +146,25 @@ El addon ahora:
    DDoS-Guard, mensajes de IP/país) y lo muestra en Stremio como
    «⛔ … bloquea la IP del servidor», ofreciendo abrir el embed con **tu**
    conexión.
-2. **Abre un circuito por host** unos minutos (`/debug/hosts`) para no
-   perder tiempo resolviendo el mismo player bloqueado en cada episodio.
-3. Si algún enlace directo parece firmado con la IP que resolvió
+2. **Reintenta señalando tu IP.** Un servidor no puede emitir TCP con la
+   IP residencial del usuario (el tráfico de vuelta iría a su casa y su
+   router/ISP lo descarta; no es un problema de permisos, es física de
+   red). Lo que sí puede es reintentar una vez **señalando** la IP pública
+   de quien pide el stream con cabeceras estándar de proxy
+   (`X-Forwarded-For` / `X-Real-IP` / `Forwarded`). Los reproductores que
+   deciden por esa cabecera pueden soltar el vídeo («Vídeo directo ·
+   resuelto señalando tu IP»); los que miran la IP TCP real (p. ej.
+   Cloudflare) seguirán bloqueando. La IP solo se señala **después** de
+   un bloqueo y solo a ese reproductor; no se loguea ni se guarda (en
+   memoria viaja su hash). Apágalo con `EA_FORWARD_CLIENT_IP=0`.
+3. **Abre un circuito por host** unos minutos (`/debug/hosts`) para no
+   perder tiempo resolviendo el mismo player bloqueado en cada episodio;
+   el reintento con tu IP tampoco se repite para el mismo usuario+host.
+4. Si algún enlace directo parece firmado con la IP que resolvió
    (`get_video?...&ip=…`), deja también el embed externo como plan B.
-4. **Opcional:** puede delegar solo los embeds bloqueados a un resolver en
-   una IP residencial. Ejecuta `scripts/home-resolver.js` en tu PC/Raspberry,
-   exponlo con un túnel seguro y define en el despliegue:
+5. **Opcional:** puede delegar solo los embeds bloqueados a un resolver en
+   una IP residencial **real**. Ejecuta `scripts/home-resolver.js` en tu
+   PC/Raspberry, exponlo con un túnel seguro y define en el despliegue:
 
    ```bash
    EA_EXTERNAL_RESOLVER_URL=https://tu-tunel.example
@@ -198,6 +210,7 @@ src/
 ├── scraper.js         # proveedor EstrenosAnime (buscador, fichas, /ver/)
 ├── infinity.js        # proveedor InfinityAnime (directorio + REST WP + watch)
 ├── extractors.js      # resolvers por host + genérico (packer/HLS/AJAX)
+├── request-context.js # IP pública del solicitante por petición (anti-bloqueo)
 ├── http.js            # fetch con cabeceras de navegador, timeouts y caché
 ├── config.js          # dominios y rutas verificadas de las 5 webs
 └── util.js            # idiomas, títulos/temporadas, IDs, helpers
@@ -221,6 +234,9 @@ Dockerfile · docker-compose.yml · render.yaml · .env.example
 | `D23_BASE_URL` | `https://animed23.com` | Dominio de AnimeD23 |
 | `EA_TIMEOUT_MS` / `EA_EMBED_TIMEOUT_MS` | `15000` / `12000` | Timeouts a webs y servidores |
 | `EA_USER_AGENT` | Chrome 126 | User-Agent de las peticiones |
+| `EA_FORWARD_CLIENT_IP` | *(on)* | `0` = no reintentar señalando la IP del solicitante tras un bloqueo |
+| `EA_CLIENT_IP_RETRY_TTL_MS` | `600000` | Enfriamiento del reintento con tu IP por host+usuario |
+| `EA_TRUST_PROXY` | *(off)* | `1` = creer `X-Forwarded-*` aunque el salto inmediato no parezca privado |
 | `EA_EXTERNAL_RESOLVER_URL` | *(vacío)* | Resolver residencial opcional para embeds que bloquean el datacenter |
 | `EA_EXTERNAL_RESOLVER_TOKEN` | *(vacío)* | Token compartido con `scripts/home-resolver.js` |
 | `EA_HOST_BLOCK_TTL_MS` / `EA_HOST_FAILURE_COOLDOWN_MS` | `600000` / `60000` | Circuito por host ante bloqueos/fallos |
@@ -271,9 +287,10 @@ absoluto vs. SxE de AnimeJara) y se ajusta la heurística.
 
 **Solo ofrece «Abrir en el navegador».**
 Ese servidor no entregó vídeo directo en ese momento. Si la nota dice
-«⛔ bloquea la IP del servidor», el player está rechazando el datacenter:
-desde tu navegador/TV suele abrir, `/debug/hosts` muestra qué host es y
-puedes activar el resolver residencial opcional (arriba). La opción
+«⛔ bloquea la IP del servidor», el player está rechazando el datacenter
+(y, si ves «señalando tu IP pública», ni así lo soltó): desde tu
+navegador/TV suele abrir, `/debug/hosts` muestra qué host es y puedes
+activar el resolver residencial opcional (arriba). La opción
 «🌐 {web}» abre la página oficial del episodio con todos sus servidores.
 
 **¿Y si una web cambia de dominio?**

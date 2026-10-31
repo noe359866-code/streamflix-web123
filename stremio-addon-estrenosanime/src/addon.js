@@ -99,7 +99,9 @@ function noteForResolution(result, embed) {
   if (result && result.blocked) {
     const external = result.externalTried
       ? ' También falló el resolver externo configurado.'
-      : ' Ábrelo desde tu conexión: suele funcionar fuera del datacenter.';
+      : result.clientIpTried
+        ? ' Tampoco lo soltó señalando tu IP pública; ábrelo con tu conexión.'
+        : ' Ábrelo desde tu conexión: suele funcionar fuera del datacenter.';
     if (result.reason === 'geo') return `⛔ ${host} bloquea por país/región la IP del servidor.${external}`;
     if (result.reason === 'rate-limit') return `⏳ ${host} limitó las peticiones del servidor (429).${external}`;
     return `⛔ ${host} bloquea la IP del servidor (datacenter/anti-bots).${external}`;
@@ -114,6 +116,9 @@ function noteForResolution(result, embed) {
 }
 
 function playableNoteForResolution(result) {
+  if (result && result.via === 'client-ip-forwarding') {
+    return 'Vídeo directo · resuelto señalando tu IP';
+  }
   if (result && result.via === 'external-resolver') {
     return 'Vídeo directo · resuelto fuera del datacenter';
   }

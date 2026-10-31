@@ -120,6 +120,17 @@ const EXTERNAL_RESOLVER_TIMEOUT_MS = Number(
 const HOST_BLOCK_TTL_MS = Number(process.env.EA_HOST_BLOCK_TTL_MS || 10 * 60 * 1000);
 const HOST_FAILURE_COOLDOWN_MS = Number(process.env.EA_HOST_FAILURE_COOLDOWN_MS || 60 * 1000);
 
+// Reintento "best effort" con la IP pública de quien pide el stream:
+// NO cambia la IP TCP del servidor (imposible), solo la señala con
+// X-Forwarded-For/Forwarded cuando el datacenter ya fue bloqueado.
+// Algunos reproductores lo aceptan; Cloudflare y los que miran la IP
+// TCP real, no. Se puede apagar con EA_FORWARD_CLIENT_IP=0.
+const FORWARD_CLIENT_IP = process.env.EA_FORWARD_CLIENT_IP !== '0';
+const CLIENT_IP_RETRY_TTL_MS = Number(process.env.EA_CLIENT_IP_RETRY_TTL_MS || 10 * 60 * 1000);
+// Actívalo si tu proxy inverso no se detecta como salto privado y
+// necesitas creer sus cabeceras X-Forwarded-* para conocer al cliente.
+const TRUST_PROXY = process.env.EA_TRUST_PROXY === '1' || process.env.TRUST_PROXY === '1';
+
 // Reglas del proyecto: SIN datos demo y SIN configurador.
 const DEBUG_ENABLED = process.env.DEBUG !== '0';
 
@@ -151,6 +162,9 @@ module.exports = {
   EXTERNAL_RESOLVER_TIMEOUT_MS,
   HOST_BLOCK_TTL_MS,
   HOST_FAILURE_COOLDOWN_MS,
+  FORWARD_CLIENT_IP,
+  CLIENT_IP_RETRY_TTL_MS,
+  TRUST_PROXY,
   DEBUG_ENABLED,
   CACHE_TTL,
 };

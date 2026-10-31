@@ -31,8 +31,11 @@ const {
   EXTERNAL_RESOLVER_TIMEOUT_MS,
   HOST_BLOCK_TTL_MS,
   HOST_FAILURE_COOLDOWN_MS,
+  FORWARD_CLIENT_IP,
+  CLIENT_IP_RETRY_TTL_MS,
 } = require('./config');
 const { fetchText } = require('./http');
+const { getClientIp, isPublicIp, hashIp } = require('./request-context');
 const {
   findDirectMediaUrls,
   findAllUrls,
@@ -112,7 +115,7 @@ function scoreMedia(url) {
 
 /* --- Casos especiales por host --- */
 
-async function resolveDood(embedUrl, html) {
+async function resolveDood(embedUrl, html, fetchOptions = {}) {
   const host = hostOf(embedUrl);
   const passMatch = String(html).match(/\/pass_md5\/[\w-]+\/([\w-]+)/);
   if (!passMatch) return null;
@@ -122,6 +125,7 @@ async function resolveDood(embedUrl, html) {
     timeoutMs: EMBED_TIMEOUT_MS,
     referer: embedUrl,
     retries: 0,
+    clientIp: fetchOptions.clientIp || undefined,
   });
   const basePart = String(text || '').trim();
   if (!/^https?:\/\//.test(basePart)) return null;
@@ -309,7 +313,11 @@ function extractPackedMedia(html, baseForRelative = '') {
  *  1. Detectar el bloqueo (HTTP + patrones anti-bot/geo/IP).
  *  2. Abrir un "circuito" por host unos minutos para no perder tiempo
  *     ni martillar al host en cada episodio.
- *  3. Avisar a la capa de streams para ofrecer la vía externa con una
+ *  3. Reintentar UNA vez señalando la IP pública de quien pide el
+ *     stream con X-Forwarded-For ("client-ip-forwarding"). No es la
+ *     IP TCP real —eso no se puede poner desde el servidor—, pero
+ *     hosts/proxies que se fían de esa cabecera pueden responder.
+ *  4. Avisar a la capa de streams para ofrecer la vía externa con una
  *     nota clara, y opcionalmente delegar en un resolver externo
  *     residencial (EA_EXTERNAL_RESOLVER_URL, ver home-resolver.js).
  * Un proxy de medios en el MISMO servidor no arreglaría esto (sigue
@@ -318,6 +326,9 @@ function extractPackedMedia(html, baseForRelative = '') {
  */
 
 const hostHealth = new Map();
+// Reintentos con la IP del solicitante ya probados (host + HASH de la
+// IP, nunca la IP en claro) para no repetirlos en cada episodio.
+const clientIpRetryHealth = new Map();
 
 function healthKey(urlOrHost) {
   const raw = String(urlOrHost || '').trim();
@@ -390,6 +401,37 @@ function getHostBlockSnapshot() {
 
 function clearHostHealth() {
   hostHealth.clear();
+  clientIpRetryHealth.clear();
+}
+
+function clientIpRetryKey(urlOrHost, clientIp) {
+  const host = healthKey(urlOrHost);
+  const hashed = hashIp(clientIp);
+  return host && hashed ? `${host}|${hashed}` : '';
+}
+
+function hasRecentClientIpRetry(urlOrHost, clientIp) {
+  const key = clientIpRetryKey(urlOrHost, clientIp);
+  if (!key) return false;
+  const until = clientIpRetryHealth.get(key) || 0;
+  if (until <= Date.now()) {
+    clientIpRetryHealth.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function rememberClientIpRetry(urlOrHost, clientIp, ttlMs = CLIENT_IP_RETRY_TTL_MS) {
+  const key = clientIpRetryKey(urlOrHost, clientIp);
+  if (!key) return;
+  // Limpieza oportunista para que el mapa no crezca sin límite.
+  if (clientIpRetryHealth.size > 500) {
+    const now = Date.now();
+    for (const [k, until] of clientIpRetryHealth) {
+      if (until <= now) clientIpRetryHealth.delete(k);
+    }
+  }
+  clientIpRetryHealth.set(key, Date.now() + Math.max(0, Number(ttlMs) || 0));
 }
 
 const BLOCK_BODY_PATTERNS = [
@@ -533,6 +575,7 @@ function resolutionBase(inputUrl, embedUrl) {
     status: null,
     via: 'local',
     ipBoundSuspected: false,
+    clientIpTried: false,
     externalTried: false,
   };
 }
@@ -542,8 +585,12 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   const depth = Number(opts.depth) || 0;
   const target = normalizeEmbedUrl(embedUrl);
   const outcome = resolutionBase(embedUrl, target);
+  // Reintento interno con la IP del solicitante señalada (lo orquesta
+  // resolveEmbedDetailed solo tras un bloqueo del datacenter).
+  const forwardedIp = opts._forwardClientIp ? (opts.clientIp || getClientIp()) : '';
+  const fetchClientIp = isPublicIp(forwardedIp) ? forwardedIp : '';
 
-  const open = getHostBlock(target);
+  const open = opts._bypassCircuit ? null : getHostBlock(target);
   if (open) {
     outcome.blocked = open.state === 'blocked';
     outcome.reason = open.state === 'blocked' ? 'circuit-open' : 'host-cooldown';
@@ -559,6 +606,7 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
       timeoutMs: EMBED_TIMEOUT_MS,
       referer: pageReferer,
       retries: 0,
+      clientIp: fetchClientIp || undefined,
     });
   } catch (err) {
     const info = blockInfoFromError(err);
@@ -602,7 +650,7 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   try {
     switch (outcome.kind) {
       case 'dood':
-        direct = await resolveDood(effectiveUrl, html);
+        direct = await resolveDood(effectiveUrl, html, { clientIp: fetchClientIp || undefined });
         break;
       case 'streamtape':
         direct = resolveStreamtape(target, html);
@@ -643,8 +691,14 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   }
 
   if (direct) {
-    recordHostSuccess(target);
-    if (effectiveUrl !== target) recordHostSuccess(effectiveUrl);
+    if (fetchClientIp) {
+      // Funcionó señalando la IP del solicitante: NO se marca el host
+      // como sano para todos; el datacenter puede seguir bloqueado.
+      outcome.via = 'client-ip-forwarding';
+    } else {
+      recordHostSuccess(target);
+      if (effectiveUrl !== target) recordHostSuccess(effectiveUrl);
+    }
     outcome.ok = true;
     outcome.url = direct;
     outcome.referer = outcome.kind === 'okru' ? 'https://ok.ru/' : effectiveUrl;
@@ -684,38 +738,85 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
 /**
  * Resolución detallada de un embed. Devuelve siempre un objeto:
  * { ok, url, referer, host, kind, blocked, reason, status, via, ... }.
- * Si el hosting está bloqueado y hay resolver externo configurado,
- * lo intenta desde esa otra IP antes de rendirse.
+ * Orden anti-bloqueo de datacenter:
+ *  1. Resolución local normal (IP del hosting).
+ *  2. Si esa IP está bloqueada, UN reintento señalando la IP pública
+ *     de quien pide el stream (X-Forwarded-For; best effort, no es la
+ *     IP TCP real). Solo se señala al reproductor que ya bloqueó.
+ *  3. Si hay resolver externo residencial configurado, delegar ahí.
  */
 async function resolveEmbedDetailed(embedUrl, pageReferer = `${BASE_URL}/`, options = {}) {
   const opts = typeof options === 'number' ? { depth: options } : (options || {});
-  const local = await resolveEmbedLocalDetailed(embedUrl, pageReferer, opts);
-  if (local.ok || opts.allowExternal === false) return local;
+  let current = await resolveEmbedLocalDetailed(embedUrl, pageReferer, opts);
+  if (current.ok) return current;
+
+  const retryEligible = current.blocked || [
+    'circuit-open', 'host-cooldown', 'fetch-error', 'timeout', 'empty-response',
+  ].includes(current.reason);
+
+  // Paso 2: la IP del solicitante, señalada con cabeceras de proxy.
+  const clientIp = opts.clientIp !== undefined ? opts.clientIp : getClientIp();
+  const forwardEnabled = opts.forwardClientIp !== undefined
+    ? Boolean(opts.forwardClientIp)
+    : FORWARD_CLIENT_IP;
+  const retryTarget = current.embedUrl || embedUrl;
+  if (
+    retryEligible
+    && opts.allowClientIpRetry !== false
+    && !opts._forwardClientIp
+    && forwardEnabled
+    && isPublicIp(clientIp)
+    && !hasRecentClientIpRetry(retryTarget, clientIp)
+  ) {
+    // Se recuerda ANTES de esperar: si varios episodios del mismo
+    // usuario llegan a la vez, solo uno martillea al host.
+    rememberClientIpRetry(retryTarget, clientIp);
+    const retried = await resolveEmbedLocalDetailed(embedUrl, pageReferer, {
+      ...opts,
+      clientIp,
+      _forwardClientIp: true,
+      _bypassCircuit: true,
+    });
+    if (retried.ok) {
+      return {
+        ...retried,
+        blocked: false,
+        localReason: current.reason,
+        clientIpTried: true,
+      };
+    }
+    current.clientIpTried = true;
+    current.clientIpResult = {
+      ok: false,
+      blocked: Boolean(retried.blocked),
+      reason: retried.reason || null,
+      status: retried.status || null,
+    };
+  }
+
+  if (opts.allowExternal === false) return current;
 
   const resolverBase = opts.externalResolverUrl !== undefined ? opts.externalResolverUrl : EXTERNAL_RESOLVER_URL;
-  const eligible = local.blocked || [
-    'circuit-open', 'host-cooldown', 'fetch-error', 'timeout', 'empty-response',
-  ].includes(local.reason);
-  if (!resolverBase || !eligible) return local;
+  if (!resolverBase || !retryEligible) return current;
 
-  local.externalTried = true;
-  const external = await resolveViaExternalResolver(local.embedUrl || embedUrl, pageReferer, opts);
+  current.externalTried = true;
+  const external = await resolveViaExternalResolver(current.embedUrl || embedUrl, pageReferer, opts);
   if (external && external.ok) {
     return {
-      ...local,
+      ...current,
       ok: true,
       url: external.url,
-      referer: external.referer || local.embedUrl || embedUrl,
+      referer: external.referer || current.embedUrl || embedUrl,
       blocked: false,
-      localReason: local.reason,
+      localReason: current.reason,
       reason: null,
       via: 'external-resolver',
       ipBoundSuspected: isIpBoundSuspected(external.url),
     };
   }
-  local.externalResult = external || null;
-  if (external && external.blocked) local.externalBlocked = true;
-  return local;
+  current.externalResult = external || null;
+  if (external && external.blocked) current.externalBlocked = true;
+  return current;
 }
 
 /**
@@ -889,6 +990,8 @@ module.exports = {
   getHostBlock,
   getHostBlockSnapshot,
   clearHostHealth,
+  hasRecentClientIpRetry,
+  rememberClientIpRetry,
   buildExternalResolverUrl,
   pickExternalResolverResult,
   resolveViaExternalResolver,
