@@ -19,3 +19,7 @@ keystore.properties
 .DS_Store
 Thumbs.db
 .vscode/
+
+# Node (addon de Stremio)
+node_modules/
+.env

@@ -1,0 +1,31 @@
+{
+  "name": "stremio-addon-estrenosanime",
+  "version": "1.0.0",
+  "description": "Addon de Stremio para ver anime en Sub Español, Español Latino y Castellano desde estrenosanime.net",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js",
+    "test": "node --test",
+    "probe": "node scripts/probe.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "stremio",
+    "stremio-addon",
+    "anime",
+    "español",
+    "latino",
+    "castellano",
+    "subtitulado",
+    "estrenosanime"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.19.2",
+    "stremio-addon-sdk": "^1.6.10"
+  }
+}

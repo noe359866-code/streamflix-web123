@@ -1,0 +1,63 @@
+name: Addon Stremio · Tests
+
+# Solo corre cuando cambia el addon (no interfiere con el build del APK).
+on:
+  push:
+    paths:
+      - 'stremio-addon-estrenosanime/**'
+      - '.github/workflows/addon-test.yml'
+  pull_request:
+    paths:
+      - 'stremio-addon-estrenosanime/**'
+      - '.github/workflows/addon-test.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: addon-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node tests + smoke del manifiesto
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: stremio-addon-estrenosanime
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: stremio-addon-estrenosanime/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Syntax check
+        run: |
+          for f in src/*.js scripts/*.js test/*.js; do node --check "$f"; done
+          echo "OK: sintaxis"
+
+      - name: Unit tests (sin red)
+        run: npm test
+
+      - name: Smoke test del servidor (modo demo)
+        run: |
+          DEMO_FALLBACK=1 PORT=7000 node src/index.js &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID || true" EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:7000/health && break || sleep 1
+          done
+          curl -fsS http://127.0.0.1:7000/manifest.json | grep -q '"id":"com.streamflex.estrenosanime"'
+          curl -fsS http://127.0.0.1:7000/catalog/series/ea-episodios-lat.json | grep -q '(Latino)'
+          curl -fsS http://127.0.0.1:7000/catalog/movie/ea-peliculas.json | grep -q '"metas"'
+          curl -fsS "http://127.0.0.1:7000/meta/series/ea%3Ablack-clover-2nd-season.json" | grep -q '"videos"'
+          curl -fsS -o /dev/null -w "landing %{http_code}\n" http://127.0.0.1:7000/
+          echo "OK: manifiesto, catálogos y meta responden"

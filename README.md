@@ -140,6 +140,22 @@ Si no defines esas variables, el CI crea un keystore temporal para firmar el rel
 
 ---
 
+## 🌸 Extra: Addon de Stremio «Estrenos Anime ES»
+
+Este repo también incluye, en [`stremio-addon-estrenosanime/`](stremio-addon-estrenosanime/),
+un **addon de Stremio** (Node.js) que lleva el catálogo de
+[estrenosanime.net](https://estrenosanime.net) a Stremio en español:
+💬 **Subtitulado** · 🌎 **Latino** · 🇪🇸 **Castellano**, con 11 catálogos,
+buscador, fichas con episodios y servidores de vídeo.
+
+> Es un proyecto **independiente** de la app Android (no comparte código ni
+> afecta su compilación). Guía completa en
+> [`stremio-addon-estrenosanime/README.md`](stremio-addon-estrenosanime/README.md)
+> e investigación de la web en
+> [`INVESTIGACION.md`](stremio-addon-estrenosanime/INVESTIGACION.md).
+
+---
+
 <div align="center">
 
 Hecho con 💙 por **Noe** · StreamFlex 0.0.1
