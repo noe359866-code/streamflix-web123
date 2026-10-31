@@ -1,0 +1,48 @@
+name: Desplegar addon en Beamup
+run-name: Desplegar en Beamup por @${{ github.actor }}
+
+# Despliegue MANUAL: no corre en cada push ni en PRs.
+# Requiere el secreto SSH_PRIVATE_KEY (ver BEAMUP.md).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-beamup
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Tests + Beamup
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # La raíz es la entrada de Beamup/Dokku de este monorepo:
+      # instala ahí y ejecuta la batería del addon antes de publicar.
+      - name: Instalar y probar (envoltorio Beamup)
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npm test
+
+      - name: Desplegar en Beamup (Dokku)
+        uses: Stremio/beamup-deploy-action@v1.0.1
+        with:
+          ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          beamup_host: a.baby-beamup.club
+          username_github: ${{ github.repository_owner }}
+          project_name: anime-espanol-multi

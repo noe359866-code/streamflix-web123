@@ -1,0 +1,19 @@
+# Blueprint de Render.com — despliegue en 1 clic:
+#   Render → New → Blueprint → elige este repositorio.
+# Render detecta este fichero en la raíz del repo si lo mueves allí;
+# si lo dejas aquí, crea el servicio a mano con estos mismos valores
+# (Root Directory: stremio-addon-estrenosanime).
+services:
+  - type: web
+    name: estrenosanime-stremio-addon
+    runtime: node
+    rootDir: stremio-addon-estrenosanime
+    buildCommand: npm install --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Descomenta si estrenosanime cambia de dominio:
+      # - key: EA_BASE_URL
+      #   value: https://estrenosanime.net

@@ -1,0 +1,136 @@
+name: Addon Stremio · Tests
+
+# Solo corre cuando cambia el addon (no interfiere con el build del APK).
+on:
+  push:
+    paths:
+      - 'stremio-addon-estrenosanime/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Procfile'
+      - 'beamup.json'
+      - '.slugignore'
+      - '.nvmrc'
+      - 'BEAMUP.md'
+      - '.github/workflows/addon-test.yml'
+      - '.github/workflows/deploy-beamup.yml'
+  pull_request:
+    paths:
+      - 'stremio-addon-estrenosanime/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Procfile'
+      - 'beamup.json'
+      - '.slugignore'
+      - '.nvmrc'
+      - 'BEAMUP.md'
+      - '.github/workflows/addon-test.yml'
+      - '.github/workflows/deploy-beamup.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: addon-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Node tests + smoke del manifiesto
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: stremio-addon-estrenosanime
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: stremio-addon-estrenosanime/package-lock.json
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Syntax check
+        run: |
+          for f in src/*.js scripts/*.js test/*.js; do node --check "$f"; done
+          echo "OK: sintaxis"
+
+      - name: Sin demos ni configurador (guardas estáticas)
+        run: |
+          test ! -e src/demo.js
+          ! grep -RInE 'DEMO_FALLBACK|require\('\''\./demo'\''\)|renderConfigure' src scripts
+          ! grep -nE "app\.get\('/configure'" src/index.js
+          echo "OK: sin demo, sin /configure"
+
+      - name: Unit tests (sin red)
+        run: npm test
+
+      - name: Smoke test del servidor (sin demo)
+        run: |
+          PORT=7000 node src/index.js &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID || true" EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:7000/health && break || sleep 1
+          done
+          # Salud: los 5 proveedores presentes
+          curl -fsS http://127.0.0.1:7000/health > /tmp/health.json
+          for d in estrenosanime.net infinityanime.net animejara.com latanime.org animed23.com; do
+            grep -q "$d" /tmp/health.json
+          done
+          # Manifiesto SOLO-STREAM, v1.4.0, sin clave de configuración
+          curl -fsS http://127.0.0.1:7000/manifest.json > /tmp/manifest.json
+          grep -q '"id":"com.streamflex.estrenosanime"' /tmp/manifest.json
+          grep -q '"version":"1.4.0"' /tmp/manifest.json
+          grep -q '"resources":\["stream"\]' /tmp/manifest.json
+          grep -q '"catalogs":\[\]' /tmp/manifest.json
+          for p in 'ea:' 'ia:' 'aj:' 'lt:' 'd23:'; do grep -q "$p" /tmp/manifest.json; done
+          grep -q '"configurable":false' /tmp/manifest.json
+          ! grep -q '"config":' /tmp/manifest.json
+          # Rutas que NO deben existir
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7000/configure)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7000/catalog/series/ea-series-popular.json)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' 'http://127.0.0.1:7000/meta/series/ea%3Aone-piece.json')" = "404"
+          # Stream por ID propio de un proveedor nuevo (siempre devuelve algo útil)
+          curl -fsS --max-time 120 "http://127.0.0.1:7000/stream/series/aj%3Aone-piece-tv%3A1%3A1.json" | grep -q '"streams"'
+          # Stream desde IMDb responde JSON de streams (la red de CI llega a Cinemeta)
+          curl -fsS --max-time 180 "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q '"streams"'
+          curl -fsS -o /dev/null -w "landing %{http_code}\n" http://127.0.0.1:7000/
+          echo "OK: solo-stream, 5 proveedores, sin demo ni configurador"
+
+  beamup-wrapper:
+    name: Envoltorio Beamup (raíz)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Simula la entrada Herokuish/Dokku: instalar y arrancar desde raíz.
+      - name: Instalar en raíz y smoke
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -e "const p=require('./beamup.json'); if(p.projectName!=='anime-espanol-multi') process.exit(1)"
+          grep -Fxq 'web: npm start' Procfile
+          PORT=7101 npm start &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID || true" EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:7101/health && break || sleep 1
+          done
+          curl -fsS http://127.0.0.1:7101/manifest.json | grep -q '"resources":\["stream"\]'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7101/configure)" = "404"
+          echo "OK: Beamup arranca desde la raíz sin desplegar Android"
