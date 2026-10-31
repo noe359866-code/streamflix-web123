@@ -33,9 +33,17 @@ const {
   HOST_FAILURE_COOLDOWN_MS,
   FORWARD_CLIENT_IP,
   CLIENT_IP_RETRY_TTL_MS,
+  EMBED_PROXY_MAX_ATTEMPTS,
+  EMBED_PROXY_RETRY_TTL_MS,
 } = require('./config');
 const { fetchText } = require('./http');
 const { getClientIp, isPublicIp, hashIp } = require('./request-context');
+const {
+  getEmbedProxyCandidates,
+  getEmbedProxyStatus,
+  parseProxyEntry,
+  proxyKey,
+} = require('./proxy-egress');
 const {
   findDirectMediaUrls,
   findAllUrls,
@@ -126,6 +134,8 @@ async function resolveDood(embedUrl, html, fetchOptions = {}) {
     referer: embedUrl,
     retries: 0,
     clientIp: fetchOptions.clientIp || undefined,
+    proxyUrl: fetchOptions.proxyUrl || undefined,
+    fetchImpl: fetchOptions.fetchImpl || undefined,
   });
   const basePart = String(text || '').trim();
   if (!/^https?:\/\//.test(basePart)) return null;
@@ -317,18 +327,27 @@ function extractPackedMedia(html, baseForRelative = '') {
  *     stream con X-Forwarded-For ("client-ip-forwarding"). No es la
  *     IP TCP real —eso no se puede poner desde el servidor—, pero
  *     hosts/proxies que se fían de esa cabecera pueden responder.
- *  4. Avisar a la capa de streams para ofrecer la vía externa con una
+ *  4. Si el operador configuró una salida proxy (EA_EMBED_PROXY_URLS
+ *     o la lista de Proxy5), reintentar la RESOLUCIÓN saliendo por
+ *     esa otra IP ("proxy-egress"). Ojo: Proxy5 es datacenter, no
+ *     residencial; solo ayuda si bloquean la IP/ASN de Beamup.
+ *  5. Avisar a la capa de streams para ofrecer la vía externa con una
  *     nota clara, y opcionalmente delegar en un resolver externo
  *     residencial (EA_EXTERNAL_RESOLVER_URL, ver home-resolver.js).
  * Un proxy de medios en el MISMO servidor no arreglaría esto (sigue
  * saliendo por la IP bloqueada) y quemaría ancho de banda: por eso no
- * se hace.
+ * se hace. La salida proxy de arriba solo descarga el HTML del embed;
+ * el vídeo lo reproduce Stremio directamente.
  */
 
 const hostHealth = new Map();
 // Reintentos con la IP del solicitante ya probados (host + HASH de la
 // IP, nunca la IP en claro) para no repetirlos en cada episodio.
 const clientIpRetryHealth = new Map();
+// Salidas proxy ya probadas por host (host + HASH del endpoint, nunca
+// sus credenciales) y última salida que funcionó para cada host.
+const proxyEgressHealth = new Map();
+const proxyHostSuccess = new Map();
 
 function healthKey(urlOrHost) {
   const raw = String(urlOrHost || '').trim();
@@ -402,6 +421,8 @@ function getHostBlockSnapshot() {
 function clearHostHealth() {
   hostHealth.clear();
   clientIpRetryHealth.clear();
+  proxyEgressHealth.clear();
+  proxyHostSuccess.clear();
 }
 
 function clientIpRetryKey(urlOrHost, clientIp) {
@@ -432,6 +453,48 @@ function rememberClientIpRetry(urlOrHost, clientIp, ttlMs = CLIENT_IP_RETRY_TTL_
     }
   }
   clientIpRetryHealth.set(key, Date.now() + Math.max(0, Number(ttlMs) || 0));
+}
+
+function forgetClientIpRetry(urlOrHost, clientIp) {
+  const key = clientIpRetryKey(urlOrHost, clientIp);
+  if (key) clientIpRetryHealth.delete(key);
+}
+
+function proxyEgressKey(urlOrHost, proxyUrl) {
+  const host = healthKey(urlOrHost);
+  const hashed = proxyKey(proxyUrl);
+  return host && hashed ? `${host}|${hashed}` : '';
+}
+
+function hasRecentProxyEgress(urlOrHost, proxyUrl) {
+  const key = proxyEgressKey(urlOrHost, proxyUrl);
+  if (!key) return false;
+  const until = proxyEgressHealth.get(key) || 0;
+  if (until <= Date.now()) {
+    proxyEgressHealth.delete(key);
+    return false;
+  }
+  return true;
+}
+
+function rememberProxyEgress(urlOrHost, proxyUrl, ttlMs = EMBED_PROXY_RETRY_TTL_MS) {
+  const key = proxyEgressKey(urlOrHost, proxyUrl);
+  if (!key) return;
+  if (proxyEgressHealth.size > 1000) {
+    const now = Date.now();
+    for (const [k, until] of proxyEgressHealth) {
+      if (until <= now) proxyEgressHealth.delete(k);
+    }
+  }
+  proxyEgressHealth.set(key, Date.now() + Math.max(0, Number(ttlMs) || 0));
+}
+
+function rememberProxyHostSuccess(urlOrHost, proxyUrl) {
+  const host = healthKey(urlOrHost);
+  const normalized = parseProxyEntry(proxyUrl);
+  if (host && normalized) proxyHostSuccess.set(host, normalized);
+  const key = proxyEgressKey(urlOrHost, proxyUrl);
+  if (key) proxyEgressHealth.delete(key); // si funcionó, se puede reusar ya
 }
 
 const BLOCK_BODY_PATTERNS = [
@@ -576,6 +639,8 @@ function resolutionBase(inputUrl, embedUrl) {
     via: 'local',
     ipBoundSuspected: false,
     clientIpTried: false,
+    proxyTried: false,
+    proxyAttempts: 0,
     externalTried: false,
   };
 }
@@ -585,9 +650,12 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   const depth = Number(opts.depth) || 0;
   const target = normalizeEmbedUrl(embedUrl);
   const outcome = resolutionBase(embedUrl, target);
-  // Reintento interno con la IP del solicitante señalada (lo orquesta
-  // resolveEmbedDetailed solo tras un bloqueo del datacenter).
-  const forwardedIp = opts._forwardClientIp ? (opts.clientIp || getClientIp()) : '';
+  // Reintentos internos anti-bloqueo (los orquesta resolveEmbedDetailed
+  // solo tras un bloqueo del datacenter): IP del solicitante señalada
+  // o salida por un proxy del operador. No se mezclan: vía proxy no se
+  // señala la IP del usuario a un tercero innecesariamente.
+  const fetchProxyUrl = opts._proxyUrl ? parseProxyEntry(opts._proxyUrl) : '';
+  const forwardedIp = !fetchProxyUrl && opts._forwardClientIp ? (opts.clientIp || getClientIp()) : '';
   const fetchClientIp = isPublicIp(forwardedIp) ? forwardedIp : '';
 
   const open = opts._bypassCircuit ? null : getHostBlock(target);
@@ -607,6 +675,8 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
       referer: pageReferer,
       retries: 0,
       clientIp: fetchClientIp || undefined,
+      proxyUrl: fetchProxyUrl || undefined,
+      fetchImpl: opts.fetchImpl || undefined,
     });
   } catch (err) {
     const info = blockInfoFromError(err);
@@ -616,6 +686,11 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
       outcome.blocked = true;
       outcome.reason = info.reason;
       outcome.hostHealth = recordHostBlock(target, { ...info, kind: outcome.kind });
+    } else if (fetchProxyUrl && err.proxyError) {
+      // Falló la salida proxy, no necesariamente el reproductor: no
+      // se castiga al host en el circuito global por este intento.
+      outcome.reason = 'proxy-error';
+      outcome.proxyError = true;
     } else {
       outcome.reason = err.name === 'AbortError' ? 'timeout' : 'fetch-error';
       outcome.hostHealth = recordHostFailure(target, { reason: outcome.reason, status: outcome.status, kind: outcome.kind });
@@ -634,7 +709,9 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
 
   if (!html) {
     outcome.reason = 'empty-response';
-    outcome.hostHealth = recordHostFailure(effectiveUrl, { reason: outcome.reason, status, kind: outcome.kind });
+    if (!fetchProxyUrl && !fetchClientIp) {
+      outcome.hostHealth = recordHostFailure(effectiveUrl, { reason: outcome.reason, status, kind: outcome.kind });
+    }
     return outcome;
   }
 
@@ -650,7 +727,11 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   try {
     switch (outcome.kind) {
       case 'dood':
-        direct = await resolveDood(effectiveUrl, html, { clientIp: fetchClientIp || undefined });
+        direct = await resolveDood(effectiveUrl, html, {
+          clientIp: fetchClientIp || undefined,
+          proxyUrl: fetchProxyUrl || undefined,
+          fetchImpl: opts.fetchImpl || undefined,
+        });
         break;
       case 'streamtape':
         direct = resolveStreamtape(target, html);
@@ -684,6 +765,7 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
       return outcome;
     }
     outcome.dispatchError = err.message;
+    if (err.proxyError) outcome.proxyError = true;
   }
 
   if (!direct) {
@@ -691,7 +773,11 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   }
 
   if (direct) {
-    if (fetchClientIp) {
+    if (fetchProxyUrl) {
+      // Funcionó saliendo por el proxy: NO se marca el host como sano
+      // para la IP del datacenter; puede seguir bloqueándola.
+      outcome.via = 'proxy-egress';
+    } else if (fetchClientIp) {
       // Funcionó señalando la IP del solicitante: NO se marca el host
       // como sano para todos; el datacenter puede seguir bloqueado.
       outcome.via = 'client-ip-forwarding';
@@ -729,7 +815,7 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
   }
 
   outcome.reason = status && status >= 400 ? 'http-error' : 'not-found';
-  if (status && status >= 500) {
+  if (status && status >= 500 && !fetchProxyUrl && !fetchClientIp) {
     outcome.hostHealth = recordHostFailure(effectiveUrl, { reason: outcome.reason, status, kind: outcome.kind });
   }
   return outcome;
@@ -743,7 +829,10 @@ async function resolveEmbedLocalDetailed(embedUrl, pageReferer = `${BASE_URL}/`,
  *  2. Si esa IP está bloqueada, UN reintento señalando la IP pública
  *     de quien pide el stream (X-Forwarded-For; best effort, no es la
  *     IP TCP real). Solo se señala al reproductor que ya bloqueó.
- *  3. Si hay resolver externo residencial configurado, delegar ahí.
+ *  3. Si hay salida proxy configurada (lista estática o Proxy5),
+ *     reintentar la resolución saliendo por esa otra IP. Solo se
+ *     descarga el HTML del embed; el vídeo no pasa por el proxy.
+ *  4. Si hay resolver externo residencial configurado, delegar ahí.
  */
 async function resolveEmbedDetailed(embedUrl, pageReferer = `${BASE_URL}/`, options = {}) {
   const opts = typeof options === 'number' ? { depth: options } : (options || {});
@@ -778,6 +867,9 @@ async function resolveEmbedDetailed(embedUrl, pageReferer = `${BASE_URL}/`, opti
       _bypassCircuit: true,
     });
     if (retried.ok) {
+      // Si funcionó, el siguiente episodio debe poder intentarlo ya:
+      // el enfriamiento solo castiga los reintentos fallidos.
+      forgetClientIpRetry(retryTarget, clientIp);
       return {
         ...retried,
         blocked: false,
@@ -792,6 +884,75 @@ async function resolveEmbedDetailed(embedUrl, pageReferer = `${BASE_URL}/`, opti
       reason: retried.reason || null,
       status: retried.status || null,
     };
+  }
+
+  // Paso 3: salida proxy del operador (lista estática o Proxy5).
+  // Cambia la IP TCP que ve el reproductor solo al resolver el embed;
+  // el vídeo resultante lo reproduce Stremio directamente.
+  if (retryEligible && opts.allowProxyEgress !== false && !opts._proxyUrl) {
+    const configuredMax = opts.proxyMaxAttempts !== undefined
+      ? Number(opts.proxyMaxAttempts)
+      : Number(EMBED_PROXY_MAX_ATTEMPTS || 2);
+    const maxAttempts = Math.max(0, Math.min(5, Number.isFinite(configuredMax) ? configuredMax : 2));
+    if (maxAttempts > 0) {
+      let candidates = [];
+      try {
+        candidates = await getEmbedProxyCandidates(Math.max(maxAttempts * 3, maxAttempts), opts);
+      } catch {
+        candidates = [];
+        current.proxyResult = { ok: false, blocked: false, reason: 'proxy-pool-error', status: null };
+      }
+      const hostKey = healthKey(retryTarget);
+      const lastGood = hostKey ? proxyHostSuccess.get(hostKey) : '';
+      const ordered = [...new Set([
+        ...(lastGood ? [lastGood] : []),
+        ...candidates.map((candidate) => parseProxyEntry(candidate)).filter(Boolean),
+      ])];
+      let attempts = 0;
+      let lastProxyOutcome = null;
+      for (const proxyUrl of ordered) {
+        if (attempts >= maxAttempts) break;
+        if (hasRecentProxyEgress(retryTarget, proxyUrl)) continue;
+        // Se recuerda antes de esperar para que peticiones paralelas
+        // del mismo host no quemen la misma salida a la vez. Si
+        // funciona, rememberProxyHostSuccess lo olvida al instante.
+        rememberProxyEgress(retryTarget, proxyUrl);
+        attempts += 1;
+        const retried = await resolveEmbedLocalDetailed(embedUrl, pageReferer, {
+          ...opts,
+          _forwardClientIp: false,
+          _proxyUrl: proxyUrl,
+          _bypassCircuit: true,
+        });
+        if (retried.ok) {
+          rememberProxyHostSuccess(retryTarget, proxyUrl);
+          return {
+            ...retried,
+            blocked: false,
+            localReason: current.reason,
+            clientIpTried: Boolean(current.clientIpTried),
+            proxyTried: true,
+            proxyAttempts: attempts,
+          };
+        }
+        lastProxyOutcome = retried;
+        if (lastGood && proxyUrl === lastGood && hostKey) proxyHostSuccess.delete(hostKey);
+        // Si el HTML llegó bien pero no trae vídeo, otra salida
+        // recibirá lo mismo: no gastes más proxies en este embed.
+        if (!retried.blocked && !['proxy-error', 'fetch-error', 'timeout', 'empty-response'].includes(retried.reason)) break;
+      }
+      if (attempts > 0) {
+        current.proxyTried = true;
+        current.proxyAttempts = attempts;
+        current.proxyResult = {
+          ok: false,
+          blocked: Boolean(lastProxyOutcome && lastProxyOutcome.blocked),
+          reason: (lastProxyOutcome && lastProxyOutcome.reason) || null,
+          status: (lastProxyOutcome && lastProxyOutcome.status) || null,
+        };
+        if (lastProxyOutcome && lastProxyOutcome.proxyError) current.proxyError = true;
+      }
+    }
   }
 
   if (opts.allowExternal === false) return current;
@@ -992,6 +1153,11 @@ module.exports = {
   clearHostHealth,
   hasRecentClientIpRetry,
   rememberClientIpRetry,
+  forgetClientIpRetry,
+  hasRecentProxyEgress,
+  rememberProxyEgress,
+  rememberProxyHostSuccess,
+  getEmbedProxyStatus,
   buildExternalResolverUrl,
   pickExternalResolverResult,
   resolveViaExternalResolver,

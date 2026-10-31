@@ -26,7 +26,7 @@ abre cualquier anime (Cinemeta, Kitsu…) y elige proveedor + idioma.
 | 🗣️ **3 idiomas** | Grupos por **proveedor + idioma** (orden: 🌎 Latino, 🇪🇸 Castellano, 💬 Sub) según lo que cada web publique |
 | 🔢 **Mapeo de episodios** | Traduce Temporada/Episodio al formato real de cada web: fichas por temporada, numeración absoluta (lista de Cinemeta) y **SxE** en AnimeJara |
 | 📺 **Servidores reales** | Filemoon, Voe, MP4Upload, VidHide, StreamWish, StreamTape, DoodStream, OK.ru, MixDrop, Sibnet… con **resolvers por reproductor**; directo dentro de Stremio cuando se puede, si no «↗️ Abrir en el navegador» |
-| 🏠 **Si bloquean el datacenter** | Detecta 403/captcha/geo-bloqueo a la IP de Beamup/Render/VPS, reintenta **señalando la IP pública de quien pide el stream** (`X-Forwarded-For`, best effort), abre circuito por host para no perder tiempo y puede delegar en un **resolver residencial** opcional (`EA_EXTERNAL_RESOLVER_URL`) |
+| 🏠 **Si bloquean el datacenter** | Detecta 403/captcha/geo-bloqueo a la IP de Beamup/Render/VPS, reintenta **señalando la IP pública de quien pide el stream** (`X-Forwarded-For`, best effort), opcionalmente resuelve saliendo por un **proxy del operador** (lista estática o Proxy5), abre circuito por host para no perder tiempo y puede delegar en un **resolver residencial** opcional (`EA_EXTERNAL_RESOLVER_URL`) |
 | 🧰 **Diagnóstico** | `/debug/map`, `/debug/watch?provider=…`, `/debug/search?provider=…`, `/debug/hosts` y CLI `scripts/probe.js` |
 
 > 📖 Investigación de las webs: **[INVESTIGACION.md](./INVESTIGACION.md)** (EstrenosAnime) ·
@@ -157,12 +157,30 @@ El addon ahora:
    Cloudflare) seguirán bloqueando. La IP solo se señala **después** de
    un bloqueo y solo a ese reproductor; no se loguea ni se guarda (en
    memoria viaja su hash). Apágalo con `EA_FORWARD_CLIENT_IP=0`.
-3. **Abre un circuito por host** unos minutos (`/debug/hosts`) para no
+3. **Opcional: salida proxy del operador.** Si configuras proxies
+   (`EA_EMBED_PROXY_URLS`, o la lista de Proxy5 con
+   `EA_PROXY5_API_AUTH_KEY` + `EA_PROXY5_SERVICE_ID`), la resolución del
+   embed se reintenta saliendo por esa otra IP («Vídeo directo · resuelto
+   vía proxy de salida»). Solo se descarga el HTML del embed por el
+   proxy; el vídeo lo reproduce Stremio desde tu conexión. **Ojo con
+   Proxy5:** su propia FAQ dice que todos sus proxies son de
+   **datacenter** y que **no vende residenciales**. Sirve si el
+   reproductor bloquea la IP/ASN concretas de Beamup; si bloquea
+   cualquier datacenter o pide un challenge de navegador, seguirá
+   bloqueando. Además Proxy5 exige **amarrar la IP saliente de Beamup**
+   (IP binding) en su panel. Consejo: prueba primero su trial y valida
+   con `/debug/watch?…&resolve=1` antes de pagar un plan grande. La API
+   enlazada está marcada como *legacy*: el addon solo hace el GET de
+   lectura de la lista (`/api/iplist/…`), nunca compra ni modifica
+   servicios, y `/health` solo enseña conteos (`embedProxy`), jamás
+   endpoints ni credenciales.
+4. **Abre un circuito por host** unos minutos (`/debug/hosts`) para no
    perder tiempo resolviendo el mismo player bloqueado en cada episodio;
-   el reintento con tu IP tampoco se repite para el mismo usuario+host.
-4. Si algún enlace directo parece firmado con la IP que resolvió
+   el reintento con tu IP tampoco se repite para el mismo usuario+host
+   si ya falló, ni la misma salida proxy para el mismo host.
+5. Si algún enlace directo parece firmado con la IP que resolvió
    (`get_video?...&ip=…`), deja también el embed externo como plan B.
-5. **Opcional:** puede delegar solo los embeds bloqueados a un resolver en
+6. **Opcional:** puede delegar solo los embeds bloqueados a un resolver en
    una IP residencial **real**. Ejecuta `scripts/home-resolver.js` en tu
    PC/Raspberry, exponlo con un túnel seguro y define en el despliegue:
 
@@ -176,8 +194,9 @@ El addon ahora:
 
 > Un proxy de medios en el **mismo** Beamup no solucionaría el bloqueo:
 > seguiría saliendo por la IP del datacenter y además consumiría su
-> ancho de banda. Por eso el respaldo es el navegador del usuario o un
-> resolver fuera del datacenter.
+> ancho de banda. Por eso la salida proxy de arriba es **externa** y
+> solo resuelve el embed (KB de HTML), y el respaldo final sigue siendo
+> el navegador del usuario o un resolver residencial real.
 
 ---
 
@@ -210,6 +229,7 @@ src/
 ├── scraper.js         # proveedor EstrenosAnime (buscador, fichas, /ver/)
 ├── infinity.js        # proveedor InfinityAnime (directorio + REST WP + watch)
 ├── extractors.js      # resolvers por host + genérico (packer/HLS/AJAX)
+├── proxy-egress.js    # salida proxy opcional para embeds (estática/Proxy5)
 ├── request-context.js # IP pública del solicitante por petición (anti-bloqueo)
 ├── http.js            # fetch con cabeceras de navegador, timeouts y caché
 ├── config.js          # dominios y rutas verificadas de las 5 webs
@@ -237,6 +257,10 @@ Dockerfile · docker-compose.yml · render.yaml · .env.example
 | `EA_FORWARD_CLIENT_IP` | *(on)* | `0` = no reintentar señalando la IP del solicitante tras un bloqueo |
 | `EA_CLIENT_IP_RETRY_TTL_MS` | `600000` | Enfriamiento del reintento con tu IP por host+usuario |
 | `EA_TRUST_PROXY` | *(off)* | `1` = creer `X-Forwarded-*` aunque el salto inmediato no parezca privado |
+| `EA_EMBED_PROXY_URLS` | *(vacío)* | Proxies de salida solo para resolver embeds bloqueados (URLs o `host:puerto[:user:clave]`, separados por comas) |
+| `EA_EMBED_PROXY_MAX_ATTEMPTS` | `2` | Salidas proxy a probar por embed bloqueado (máx. 5) |
+| `EA_PROXY5_API_AUTH_KEY` + `EA_PROXY5_SERVICE_ID` | *(vacío)* | Descarga la lista de un servicio Proxy5 ya comprado vía su API heredada (solo lectura). Proxy5 es datacenter, no residencial |
+| `EA_PROXY5_LIST_TYPE` / `EA_PROXY5_LIST_FORMAT` | `http-auth` / `json` | Tipo/formato de la lista Proxy5 (`/api/iplist/{type}/{format}/{id}`) |
 | `EA_EXTERNAL_RESOLVER_URL` | *(vacío)* | Resolver residencial opcional para embeds que bloquean el datacenter |
 | `EA_EXTERNAL_RESOLVER_TOKEN` | *(vacío)* | Token compartido con `scripts/home-resolver.js` |
 | `EA_HOST_BLOCK_TTL_MS` / `EA_HOST_FAILURE_COOLDOWN_MS` | `600000` / `60000` | Circuito por host ante bloqueos/fallos |
@@ -288,9 +312,10 @@ absoluto vs. SxE de AnimeJara) y se ajusta la heurística.
 **Solo ofrece «Abrir en el navegador».**
 Ese servidor no entregó vídeo directo en ese momento. Si la nota dice
 «⛔ bloquea la IP del servidor», el player está rechazando el datacenter
-(y, si ves «señalando tu IP pública», ni así lo soltó): desde tu
-navegador/TV suele abrir, `/debug/hosts` muestra qué host es y puedes
-activar el resolver residencial opcional (arriba). La opción
+(y, si ves «señalando tu IP pública» o «vía el proxy de salida», ni así
+lo soltó): desde tu navegador/TV suele abrir, `/debug/hosts` muestra qué
+host es y puedes activar una salida proxy o el resolver residencial
+opcional (arriba). La opción
 «🌐 {web}» abre la página oficial del episodio con todos sus servidores.
 
 **¿Y si una web cambia de dominio?**

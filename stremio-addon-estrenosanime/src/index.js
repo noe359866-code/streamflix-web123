@@ -15,7 +15,7 @@ const { renderLanding } = require('./landing');
 const scraper = require('./scraper');
 const providers = require('./providers');
 const idmap = require('./idmap');
-const { resolveEmbedDetailed, getHostBlockSnapshot } = require('./extractors');
+const { resolveEmbedDetailed, getHostBlockSnapshot, getEmbedProxyStatus } = require('./extractors');
 const { parseClientIp, runWithRequestContext } = require('./request-context');
 const { DEBUG_ENABLED, EXTERNAL_RESOLVER_URL, FORWARD_CLIENT_IP, TRUST_PROXY } = require('./config');
 
@@ -52,6 +52,7 @@ app.get('/health', (_req, res) => {
     sources: providers.PROVIDERS.map((p) => ({ id: p.id, name: p.name, url: p.baseUrl })),
     externalResolver: Boolean(EXTERNAL_RESOLVER_URL),
     clientIpRetry: Boolean(FORWARD_CLIENT_IP),
+    embedProxy: getEmbedProxyStatus(),
     blockedHosts: getHostBlockSnapshot().length,
     time: new Date().toISOString(),
   });
@@ -116,6 +117,7 @@ if (DEBUG_ENABLED) {
       ok: true,
       externalResolver: Boolean(EXTERNAL_RESOLVER_URL),
       clientIpRetry: Boolean(FORWARD_CLIENT_IP),
+      embedProxy: getEmbedProxyStatus(),
       hosts: getHostBlockSnapshot(),
     }))
   );

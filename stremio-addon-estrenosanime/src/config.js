@@ -131,6 +131,41 @@ const CLIENT_IP_RETRY_TTL_MS = Number(process.env.EA_CLIENT_IP_RETRY_TTL_MS || 1
 // necesitas creer sus cabeceras X-Forwarded-* para conocer al cliente.
 const TRUST_PROXY = process.env.EA_TRUST_PROXY === '1' || process.env.TRUST_PROXY === '1';
 
+// Salida proxy OPCIONAL, solo para reintentar la RESOLUCIÓN de embeds
+// bloqueados (nunca se proxifica el vídeo: Stremio lo reproduce directo
+// desde la IP del usuario). Acepta una lista estática de proxies
+// (URL completa o host:puerto[:usuario:contraseña], separados por
+// comas/saltos) y/o la API heredada de Proxy5 para descargar la lista
+// de un servicio ya comprado. Ojo: Proxy5 vende proxies de DATACENTER
+// (su FAQ lo dice: no tiene residenciales), así que esto solo ayuda si
+// el reproductor bloquea la IP/ASN concretas de Beamup, no si bloquea
+// cualquier datacenter. Sin variables, queda desactivado.
+const EMBED_PROXY_URLS =
+  process.env.EA_EMBED_PROXY_URLS || process.env.EA_EMBED_PROXY_URL || '';
+const EMBED_PROXY_SCHEME = (
+  process.env.EA_EMBED_PROXY_SCHEME || 'http'
+).trim().toLowerCase();
+const EMBED_PROXY_MAX_ATTEMPTS = Number(process.env.EA_EMBED_PROXY_MAX_ATTEMPTS || 2);
+const EMBED_PROXY_RETRY_TTL_MS = Number(process.env.EA_EMBED_PROXY_RETRY_TTL_MS || 10 * 60 * 1000);
+// Proxy5 (API heredada https://api.proxy5.net/docs/): solo se usa el
+// GET de lectura /api/iplist/... para traer la lista; el addon nunca
+// compra, renueva ni modifica servicios. La clave es el valor que el
+// panel muestra para la cabecera Authorization: Basic ... (no metas
+// aquí la contraseña de la cuenta si el panel te da una clave API).
+const PROXY5_API_BASE_URL = (
+  process.env.EA_PROXY5_API_BASE_URL || 'https://api.proxy5.net'
+).replace(/\/+$/, '');
+const PROXY5_API_AUTH_KEY = process.env.EA_PROXY5_API_AUTH_KEY || '';
+const PROXY5_SERVICE_ID = process.env.EA_PROXY5_SERVICE_ID || '';
+const PROXY5_LIST_TYPE = (
+  process.env.EA_PROXY5_LIST_TYPE || 'http-auth'
+).trim().toLowerCase();
+const PROXY5_LIST_FORMAT = (
+  process.env.EA_PROXY5_LIST_FORMAT || 'json'
+).trim().toLowerCase();
+const PROXY5_LIST_CACHE_MS = Number(process.env.EA_PROXY5_LIST_CACHE_MS || 10 * 60 * 1000);
+const PROXY5_API_TIMEOUT_MS = Number(process.env.EA_PROXY5_API_TIMEOUT_MS || 8000);
+
 // Reglas del proyecto: SIN datos demo y SIN configurador.
 const DEBUG_ENABLED = process.env.DEBUG !== '0';
 
@@ -165,6 +200,17 @@ module.exports = {
   FORWARD_CLIENT_IP,
   CLIENT_IP_RETRY_TTL_MS,
   TRUST_PROXY,
+  EMBED_PROXY_URLS,
+  EMBED_PROXY_SCHEME,
+  EMBED_PROXY_MAX_ATTEMPTS,
+  EMBED_PROXY_RETRY_TTL_MS,
+  PROXY5_API_BASE_URL,
+  PROXY5_API_AUTH_KEY,
+  PROXY5_SERVICE_ID,
+  PROXY5_LIST_TYPE,
+  PROXY5_LIST_FORMAT,
+  PROXY5_LIST_CACHE_MS,
+  PROXY5_API_TIMEOUT_MS,
   DEBUG_ENABLED,
   CACHE_TTL,
 };

@@ -1,10 +1,37 @@
 'use strict';
 
+const { fetch: undiciFetch, ProxyAgent, Socks5ProxyAgent } = require('undici');
 const { BASE_URL, USER_AGENT, TIMEOUT_MS, CACHE_TTL } = require('./config');
 const { TtlCache, sleep } = require('./util');
 const { clientIpHeaders, hashIp } = require('./request-context');
+const { parseProxyEntry, proxyKey, sanitizeProxyError } = require('./proxy-egress');
 
 const pageCache = new TtlCache(800);
+const proxyDispatchers = new Map();
+
+/**
+ * Dispatcher de Undici para salir por un proxy HTTP/SOCKS5 concreto.
+ * Solo se usa cuando una resolución de embed lo pide (reintento tras
+ * bloqueo del datacenter); el resto del tráfico va directo.
+ */
+function getProxyDispatcher(proxyUrl) {
+  const normalized = parseProxyEntry(proxyUrl);
+  if (!normalized) return null;
+  if (!proxyDispatchers.has(normalized)) {
+    const isSocks = normalized.startsWith('socks5://');
+    proxyDispatchers.set(
+      normalized,
+      isSocks ? new Socks5ProxyAgent(normalized) : new ProxyAgent(normalized)
+    );
+  }
+  return proxyDispatchers.get(normalized);
+}
+
+async function closeProxyDispatchers() {
+  const agents = [...proxyDispatchers.values()];
+  proxyDispatchers.clear();
+  await Promise.allSettled(agents.map((agent) => agent.close()));
+}
 
 /**
  * Descarga una URL como texto con cabeceras de navegador real.
@@ -26,10 +53,26 @@ async function fetchText(url, options = {}) {
     // Solo para el reintento anti-bloqueo: señala la IP del solicitante.
     // No cambia la IP TCP saliente; ver request-context.js.
     clientIp = '',
+    // Solo para el reintento anti-bloqueo: salir por este proxy.
+    // Esto SÍ cambia la IP TCP que ve el reproductor (la del proxy).
+    proxyUrl = '',
+    fetchImpl = null,
   } = options;
 
-  // Una respuesta obtenida señalando una IP no debe reutilizarse para otra.
-  const cacheKey = clientIp ? `${url}\nxff:${hashIp(clientIp)}` : url;
+  const normalizedProxy = proxyUrl ? parseProxyEntry(proxyUrl) : '';
+  if (proxyUrl && !normalizedProxy) {
+    const err = new Error('Proxy de resolución inválido');
+    err.proxyError = true;
+    throw err;
+  }
+
+  // Una respuesta obtenida señalando una IP o vía un proxy concreto no
+  // debe reutilizarse para otra salida (puede venir firmada por IP).
+  const cacheSuffix = [
+    clientIp ? `xff:${hashIp(clientIp)}` : '',
+    normalizedProxy ? `proxy:${proxyKey(normalizedProxy)}` : '',
+  ].filter(Boolean).join('|');
+  const cacheKey = cacheSuffix ? `${url}\n${cacheSuffix}` : url;
   if (useCache) {
     const cached = pageCache.get(cacheKey);
     if (cached) return cached;
@@ -40,10 +83,12 @@ async function fetchText(url, options = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(url, {
+      const activeFetch = fetchImpl || (normalizedProxy ? undiciFetch : fetch);
+      const res = await activeFetch(url, {
         method: 'GET',
         redirect: 'follow',
         signal: controller.signal,
+        ...(normalizedProxy ? { dispatcher: getProxyDispatcher(normalizedProxy) } : {}),
         headers: {
           'User-Agent': USER_AGENT,
           Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -68,6 +113,11 @@ async function fetchText(url, options = {}) {
       }
       return result;
     } catch (err) {
+      if (normalizedProxy) {
+        // Nunca dejes que un error enseñe usuario/clave del proxy.
+        if (err && err.message) err.message = sanitizeProxyError(err.message, normalizedProxy);
+        if (err && !err.status) err.proxyError = true;
+      }
       lastError = err;
       if (attempt < retries) await sleep(700 * (attempt + 1));
     } finally {
@@ -82,4 +132,4 @@ async function fetchSitePage(path, options = {}) {
   return fetchText(url, { useCache: true, ...options });
 }
 
-module.exports = { fetchText, fetchSitePage, pageCache };
+module.exports = { fetchText, fetchSitePage, pageCache, getProxyDispatcher, closeProxyDispatchers };

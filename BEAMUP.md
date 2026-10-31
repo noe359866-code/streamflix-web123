@@ -77,12 +77,15 @@ beamup secrets DEBUG 0              # producción: oculta /debug/*
 beamup secrets EA_BASE_URL https://nuevo-dominio.example   # solo si una web se muda
 beamup secrets EA_EXTERNAL_RESOLVER_URL https://tu-tunel.example
 beamup secrets EA_EXTERNAL_RESOLVER_TOKEN un-secreto-largo
+beamup secrets EA_PROXY5_API_AUTH_KEY la-clave-api-de-tu-panel
+beamup secrets EA_PROXY5_SERVICE_ID 123456
 beamup delete                       # borra el proyecto de Beamup
 ```
 
 Variables opcionales: `EA_BASE_URL`, `INF_BASE_URL`, `JARA_BASE_URL`,
 `LAT_BASE_URL`, `D23_BASE_URL`, `EA_TIMEOUT_MS`, `EA_EMBED_TIMEOUT_MS`,
-`EA_USER_AGENT`, `DEBUG`, `EA_FORWARD_CLIENT_IP`, `EA_TRUST_PROXY`.
+`EA_USER_AGENT`, `DEBUG`, `EA_FORWARD_CLIENT_IP`, `EA_TRUST_PROXY`,
+`EA_EMBED_PROXY_URLS`, `EA_PROXY5_API_AUTH_KEY`, `EA_PROXY5_SERVICE_ID`.
 No hace falta ninguna para funcionar.
 
 Si VOE/Filemoon/etc. bloquean la IP de Beamup, el addon lo detecta y, antes
@@ -91,10 +94,26 @@ stream** con `X-Forwarded-For` (el nginx de Dokku ya la pasa; no hay que
 configurar nada). Beamup no puede emitir con la IP TCP de la casa de cada
 usuario, así que ese paso es *best effort*: funciona con los reproductores
 que deciden por cabecera, no con los que miran la IP real. Se apaga con
-`beamup secrets EA_FORWARD_CLIENT_IP 0`. Además, `/debug/hosts` muestra qué
-host está en circuito, y con las dos variables `EA_EXTERNAL_RESOLVER_*` los
-embeds bloqueados se reintentan **desde** una IP residencial real
-(`stremio-addon-estrenosanime/scripts/home-resolver.js`, ver el README).
+`beamup secrets EA_FORWARD_CLIENT_IP 0`.
+
+Como siguiente escalón puedes darle una **salida proxy** solo para resolver
+embeds bloqueados (el vídeo nunca pasa por el proxy), con una lista estática
+`EA_EMBED_PROXY_URLS` o con Proxy5 (`EA_PROXY5_API_AUTH_KEY` +
+`EA_PROXY5_SERVICE_ID`, usando el valor para `Authorization: Basic ...` de su
+panel y el ID de un servicio ya comprado; el addon solo descarga la lista con
+su API heredada, nunca compra nada). **Aviso importante:** la FAQ de Proxy5
+dice que todos sus proxies son **de datacenter** y que **no vende
+residenciales**. Esto solo ayuda si el bloqueo es contra la IP/ASN concretas
+de Beamup; si el reproductor bloquea cualquier datacenter, seguirá cerrando.
+Proxy5 además exige **amarrar la IP saliente de Beamup (IP binding)** en su
+panel para que acepte la conexión. Prueba primero un trial y comprueba con
+`/debug/hosts` (campo `embedProxy`, solo conteos) y
+`/debug/watch?...&resolve=1`.
+
+`/debug/hosts` muestra qué host está en circuito, y con las dos variables
+`EA_EXTERNAL_RESOLVER_*` los embeds bloqueados se reintentan **desde** una IP
+residencial real (`stremio-addon-estrenosanime/scripts/home-resolver.js`, ver
+el README).
 
 ## Opción 2 — GitHub Actions (sin instalar el CLI)
 

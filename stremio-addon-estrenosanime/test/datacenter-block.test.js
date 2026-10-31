@@ -177,6 +177,17 @@ test('resolveEmbedDetailed: tras el bloqueo reintenta señalando la IP del solic
     assert.match(playableNoteForResolution(outcome), /señalando tu IP/);
     // El éxito con tu IP NO marca el host sano para el resto de usuarios.
     assert.ok(extractors.getHostBlock('https://voe.sx/e/otro'));
+
+    // Pero si a ESTE usuario le funcionó, el siguiente episodio puede
+    // intentarlo de inmediato (el enfriamiento solo castiga fallos).
+    const second = await extractors.resolveEmbedDetailed(
+      'https://voe.sx/e/conip234567',
+      'https://proveedor.example/ver',
+      { clientIp: '45.67.89.10' }
+    );
+    assert.equal(second.ok, true);
+    assert.equal(second.via, 'client-ip-forwarding');
+    assert.equal(seen.length, 3); // sin fetch directo (circuito) + reintento con tu IP
   } finally {
     restoreFetch();
   }
