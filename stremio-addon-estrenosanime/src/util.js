@@ -166,6 +166,56 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/* ------------------------------------------------------------------ */
+/* Títulos: normalización y temporadas (para mapear IMDb/Kitsu/MAL)    */
+/* ------------------------------------------------------------------ */
+
+/** "Shingeki no Kyojin: ¡Ataque! (Latino)" -> "shingeki no kyojin ataque" */
+function normalizeTitle(str) {
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\(latino\)|\(castellano\)|\(sub[^)]*\)/gi, ' ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+const SEASON_WORDS_RE =
+  /\b(?:temporada|season|temp|part|parte|cour)\s*\d*\b|\b\d+(?:st|nd|rd|th)\b/gi;
+
+function titleTokens(str, { stripSeason = false } = {}) {
+  let norm = normalizeTitle(str);
+  if (stripSeason) norm = norm.replace(SEASON_WORDS_RE, ' ').replace(/\s+/g, ' ').trim();
+  const STOP = new Set(['the', 'no', 'to', 'wa', 'wo', 'de', 'la', 'el', 'los', 'las', 'un', 'una', 'a', 'of', 'and', 'e', 'y']);
+  return norm.split(' ').filter((w) => w.length >= 2 && !STOP.has(w));
+}
+
+/** Nº de temporada deducido del título de la web, o null si no se indica. */
+function seasonOfTitle(title) {
+  const t = String(title || '');
+  let m = t.match(/(?:temporada|season|temp\.?)\s*(\d+)/i);
+  if (m) return parseInt(m[1], 10);
+  m = t.match(/(\d+)(?:st|nd|rd|th)\s*season/i);
+  if (m) return parseInt(m[1], 10);
+  m = t.match(/\b(II|III|IV|V)\s*$/);
+  if (m) return { II: 2, III: 3, IV: 4, V: 5 }[m[1]] || null;
+  return null;
+}
+
+/** Posición absoluta (1..N) de un episodio en la lista de vídeos de Cinemeta. */
+function absoluteEpisodeFromVideos(videos, season, episode) {
+  if (!Array.isArray(videos)) return null;
+  const ordered = videos
+    .filter((v) => Number(v.season) >= 1)
+    .sort((a, b) => (a.season - b.season) || (a.episode - b.episode));
+  const idx = ordered.findIndex(
+    (v) => Number(v.season) === Number(season) && Number(v.episode) === Number(episode)
+  );
+  return idx >= 0 ? idx + 1 : null;
+}
+
 /** Envuelve una promesa con timeout duro. */
 function withTimeout(promise, ms, fallback) {
   return Promise.race([
@@ -195,4 +245,8 @@ module.exports = {
   qualityFromUrl,
   sleep,
   withTimeout,
+  normalizeTitle,
+  titleTokens,
+  seasonOfTitle,
+  absoluteEpisodeFromVideos,
 };

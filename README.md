@@ -143,10 +143,11 @@ Si no defines esas variables, el CI crea un keystore temporal para firmar el rel
 ## 🌸 Extra: Addon de Stremio «Estrenos Anime ES»
 
 Este repo también incluye, en [`stremio-addon-estrenosanime/`](stremio-addon-estrenosanime/),
-un **addon de Stremio** (Node.js) que lleva el catálogo de
-[estrenosanime.net](https://estrenosanime.net) a Stremio en español:
-💬 **Subtitulado** · 🌎 **Latino** · 🇪🇸 **Castellano**, con 11 catálogos,
-buscador, fichas con episodios y servidores de vídeo.
+un **addon de Stremio solo de streams** (Node.js): sobre las fichas de
+Cinemeta/IMDb, Kitsu o MAL devuelve los servidores de
+[estrenosanime.net](https://estrenosanime.net) en español
+💬 **Subtitulado** · 🌎 **Latino** · 🇪🇸 **Castellano**.
+Sin catálogos ni fichas propias, únicamente el recurso `stream`.
 
 > Es un proyecto **independiente** de la app Android (no comparte código ni
 > afecta su compilación). Guía completa en

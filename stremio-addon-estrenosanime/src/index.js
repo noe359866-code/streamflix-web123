@@ -4,9 +4,10 @@
  * Servidor del addon.
  *  - Express con portada propia (/), configuración (/configure),
  *    salud (/health) y diagnóstico (/debug/*).
- *  - El router oficial de stremio-addon-sdk sirve /manifest.json,
- *    /catalog/..., /meta/... y /stream/... (también con prefijo de
- *    configuración /{config}/manifest.json).
+ *  - El router oficial de stremio-addon-sdk sirve /manifest.json y
+ *    ÚNICAMENTE el recurso /stream/... (addon solo-stream, sin
+ *    catálogos ni metas), también con prefijo de configuración
+ *    /{config}/manifest.json.
  */
 
 const express = require('express');
@@ -14,6 +15,7 @@ const { getRouter } = require('stremio-addon-sdk');
 const { builder, manifest } = require('./addon');
 const { renderLanding, renderConfigure } = require('./landing');
 const scraper = require('./scraper');
+const idmap = require('./idmap');
 const { resolveEmbed } = require('./extractors');
 const { BASE_URL, DEBUG_ENABLED, DEMO_FALLBACK } = require('./config');
 
@@ -77,6 +79,20 @@ if (DEBUG_ENABLED) {
         ).catch((e) => ({ error: e.message }));
       }
       return out;
+    })
+  );
+
+  // /debug/map?id=tt0388629:1:1&type=series — cómo se mapea un ID externo
+  // (IMDb/Kitsu/MAL) a las fichas por idioma de estrenosanime.net
+  app.get(
+    '/debug/map',
+    wrap(async (req) => {
+      const id = String(req.query.id || 'tt0388629:1:1');
+      const type = String(req.query.type || 'series');
+      const parsed = idmap.parseExternalStreamId(id);
+      if (!parsed) return { ok: false, error: `ID no soportado: ${id} (usa tt…, kitsu:… o mal:…)` };
+      const resolved = await idmap.resolveExternal(parsed, type, {});
+      return { ok: true, id, type, parsed, title: resolved.title, titles: resolved.titles, busquedas: resolved.queries, contexto: resolved.ctx, jobs: resolved.jobs };
     })
   );
 

@@ -151,11 +151,25 @@ StreamTape, OK.ru). Si un servidor no entrega vídeo directo, Stremio muestra
 
 ## 6. Decisiones de diseño derivadas
 
-1. **IDs propios** `ea:{slug}` y episodios `ea:{slug}:1:{n}`: el slug ya
-   contiene el idioma, así que Sub/Latino/Castellano conviven sin colisiones.
-2. **`Pelicula` → tipo `movie`**; TV/OVA/ONA/Especial/Music → `series`.
-3. Catálogos de «últimos episodios» enlazan a `/ver/…`: el parser los
-   convierte a la ficha correspondiente conservando el nº de episodio.
-4. Sin selector de «temporada»: la web publica cada temporada como ficha
-   aparte («… Temporada 2 (Latino)»), igual que hará Stremio aquí.
+> **Actualización v1.1.0 (a petición): el addon es SOLO-STREAM.**
+> El manifiesto expone únicamente `resources: ["stream"]` (sin catalog ni
+> meta). Las fichas vienen de otros addons y este solo aporta servidores.
+
+1. **IDs aceptados en stream**: IMDb/Cinemeta `tt…[:T:E]`, Kitsu
+   `kitsu:{id}:{ep}`, MAL `mal:{id}:{ep}` y compat `ea:{slug}[:1:{ep}]`.
+   El título se obtiene de Cinemeta/Kitsu/Jikan, se busca en
+   `/search?keyword=` y se elige **una ficha por idioma** (el slug ya
+   contiene el idioma, así que Sub/Latino/Castellano no colisionan).
+2. **Mapeo de episodio**: si la ficha elegida es de una temporada concreta
+   («… Temporada 2»), el nº es el de dentro de la temporada (y se exige
+   que coincida); si es la ficha completa sin temporada, se usa la
+   **posición absoluta** calculada desde la lista de vídeos de Cinemeta.
+   Para Kitsu/MAL el nº pedido ya es el de esa entrada: se usa tal cual.
+3. **`Pelicula` → tipo `movie`**; TV/OVA/ONA/Especial/Music → `series`
+   (se usa al puntuar candidatos para no emparejar película↔serie).
+4. Sin selector de «temporada» propio: la web publica cada temporada como
+   ficha aparte, y la búsqueda añade la variante «… Temporada N» / «…
+   {N}nd Season» cuando se pide T>1 desde Cinemeta.
 5. Cachés cortos y `EA_BASE_URL` configurable por si el dominio cambia.
+   El parser de listados/fichas queda como herramienta interna del mapeo
+   y del diagnóstico (`/debug/*`, `probe.js`), no como recurso de Stremio.

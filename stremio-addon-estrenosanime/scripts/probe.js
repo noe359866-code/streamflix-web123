@@ -6,6 +6,7 @@
  *   node scripts/probe.js search "One Piece" [pagina]
  *   node scripts/probe.js detail <slug>
  *   node scripts/probe.js watch  <slug> <episodio> [--resolve]
+ *   node scripts/probe.js map    <tt...|kitsu:...|mal:...> [series|movie|anime]
  *   node scripts/probe.js catalog <ruta-del-sitio> [pagina]   ej: /ultimo-castellano
  *
  * Imprime en JSON exactamente lo que el scraper ve en estrenosanime.net.
@@ -13,6 +14,7 @@
  */
 
 const scraper = require('../src/scraper');
+const idmap = require('../src/idmap');
 const { resolveEmbed } = require('../src/extractors');
 const { ROUTES, BASE_URL } = require('../src/config');
 
@@ -46,6 +48,14 @@ async function main() {
     }
     case 'detail': {
       print(await scraper.getMetaDetail(args[0] || 'one-piece'));
+      break;
+    }
+    case 'map': {
+      const id = args[0] || 'tt0388629:1:1';
+      const type = args[1] || 'series';
+      const parsed = idmap.parseExternalStreamId(id);
+      if (!parsed) throw new Error(`ID no soportado: ${id}`);
+      print({ parsed, ...(await idmap.resolveExternal(parsed, type, {})) });
       break;
     }
     case 'watch': {

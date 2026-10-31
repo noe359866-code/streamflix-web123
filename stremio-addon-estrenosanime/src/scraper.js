@@ -304,6 +304,10 @@ function parseDetail(html, slug) {
 
   // Campos de texto (etiquetas verificadas en la investigación)
   const description = textBetween(detailText, 'Resumen:', ['Japonés:', 'Japones:', 'Estrenos Anime Es una gran']);
+  const japaneseTitle = textBetween(detailText, 'Japonés:', ['English:', 'Sinónimos:', 'Sinonimos:']);
+  const englishTitle = textBetween(detailText, 'English:', ['Sinónimos:', 'Sinonimos:', 'Temporada estacional:']);
+  const synonyms = textBetween(detailText, 'Sinónimos:', ['Temporada estacional:', 'Emisión:']) ||
+    textBetween(detailText, 'Sinonimos:', ['Temporada estacional:', 'Emisión:']);
   const idiomaField = (detailText.match(/Idioma:\s*([A-Za-zÁÉÍÓÚ]+)/i) || [])[1] || '';
   const epMatch = detailText.match(/Episodios:\s*(\d+)(?:\s*\/\s*(\d+|\?+))?/i);
   const episodesAvailable = epMatch ? parseInt(epMatch[1], 10) : null;
@@ -363,6 +367,9 @@ function parseDetail(html, slug) {
   return {
     slug,
     title,
+    englishTitle,
+    japaneseTitle,
+    synonyms,
     poster,
     background: background || poster,
     description,
@@ -601,6 +608,11 @@ async function fetchListingPage(path, page = 1) {
   return parseListing(text);
 }
 
+/** Busca en la web (/search?keyword=) y devuelve las tarjetas tal cual. */
+async function searchItems(query, page = 1) {
+  return fetchListingPage(ROUTES.search(query), page);
+}
+
 // Aprendizaje del tamaño de página de cada listado (para el skip de Stremio)
 const perPageBySource = new Map();
 const DEFAULT_PER_PAGE = 24;
@@ -686,6 +698,7 @@ module.exports = {
   withPage,
   // con red
   fetchListingPage,
+  searchItems,
   getCatalogMetas,
   getMetaDetail,
   getWatch,

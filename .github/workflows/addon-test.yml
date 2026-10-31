@@ -55,9 +55,17 @@ jobs:
           for i in $(seq 1 20); do
             curl -fsS http://127.0.0.1:7000/health && break || sleep 1
           done
-          curl -fsS http://127.0.0.1:7000/manifest.json | grep -q '"id":"com.streamflex.estrenosanime"'
-          curl -fsS http://127.0.0.1:7000/catalog/series/ea-episodios-lat.json | grep -q '(Latino)'
-          curl -fsS http://127.0.0.1:7000/catalog/movie/ea-peliculas.json | grep -q '"metas"'
-          curl -fsS "http://127.0.0.1:7000/meta/series/ea%3Ablack-clover-2nd-season.json" | grep -q '"videos"'
+          # Manifiesto SOLO-STREAM
+          curl -fsS http://127.0.0.1:7000/manifest.json > /tmp/manifest.json
+          grep -q '"id":"com.streamflex.estrenosanime"' /tmp/manifest.json
+          grep -q '"resources":\["stream"\]' /tmp/manifest.json
+          grep -q '"catalogs":\[\]' /tmp/manifest.json
+          # catalog/meta NO deben existir como recursos
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7000/catalog/series/ea-series-popular.json)" = "404"
+          test "$(curl -s -o /dev/null -w '%{http_code}' 'http://127.0.0.1:7000/meta/series/ea%3Aone-piece.json')" = "404"
+          # Stream desde un ID de IMDb (One Piece) y desde un id propio ea:
+          curl -fsS "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q '"streams"'
+          curl -fsS "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q 'estrenosanime.net/ver/'
+          curl -fsS "http://127.0.0.1:7000/debug/map?id=tt0388629:1:1&type=series" | grep -q '"jobs"'
           curl -fsS -o /dev/null -w "landing %{http_code}\n" http://127.0.0.1:7000/
-          echo "OK: manifiesto, catálogos y meta responden"
+          echo "OK: manifiesto solo-stream, sin catalog/meta, streams por IMDb responden"

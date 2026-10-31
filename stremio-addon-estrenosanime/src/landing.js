@@ -70,13 +70,13 @@ function renderLanding({ base, manifest }) {
     ${demoBadge}
     <div style="font-size:15px;color:#93c5fd;font-weight:700;letter-spacing:.08em">ADDON PARA STREMIO</div>
     <h1>🌸 Estrenos Anime <span class="grad">en español</span></h1>
-    <p class="lead">Todo el catálogo de <b>estrenosanime.net</b> dentro de Stremio: series y películas con sus fichas, episodios y servidores, leído en vivo de la web.</p>
+    <p class="lead">Addon <b>solo de streams</b>: busca en <b>estrenosanime.net</b> el anime que abras desde cualquier otro catálogo de Stremio (Cinemeta, Kitsu…) y te ofrece sus servidores en español, leídos en vivo de la web. No añade catálogos ni fichas propias.</p>
     <div class="langs">
+      <span class="chip">▶️ Solo streams</span>
       <span class="chip">💬 Sub Español</span>
       <span class="chip">🌎 Español Latino</span>
       <span class="chip">🇪🇸 Castellano</span>
-      <span class="chip">🎬 Películas</span>
-      <span class="chip">🔎 Buscador</span>
+      <span class="chip">🎬 IMDb · Kitsu · MAL</span>
     </div>
 
     <div class="card">
@@ -92,22 +92,20 @@ function renderLanding({ base, manifest }) {
     </div>
 
     <div class="card">
-      <h2 style="margin-top:0">📚 Catálogos que añade</h2>
+      <h2 style="margin-top:0">▶️ Cómo se usa (solo streams)</h2>
       <div class="grid">
-        <div class="mini"><b>Series</b><ul>
-          <li>🔥 Populares (+ buscador)</li>
-          <li>💬 Últimos episodios · Sub Español</li>
-          <li>🌎 Últimos episodios · Latino</li>
-          <li>🇪🇸 Últimos episodios · Castellano</li>
-          <li>🆕 Agregados · 🔄 Actualizados · 📺 En emisión</li>
-          <li>🎭 Por género · 🎞️ Por formato (TV/OVA/ONA)</li>
-        </ul></div>
-        <div class="mini"><b>Películas</b><ul>
-          <li>🎬 Películas de anime (+ buscador)</li>
-          <li>🎭 Películas por género</li>
+        <div class="mini"><b>En 3 pasos</b><ul>
+          <li>1️⃣ Instala este addon (botón de arriba).</li>
+          <li>2️⃣ Abre un anime desde <b>cualquier catálogo</b> que ya tengas en Stremio (el oficial Cinemeta, Kitsu, etc.).</li>
+          <li>3️⃣ En la lista de fuentes del episodio elige <b>EstrenosAnime</b> con tu idioma: 💬 Sub · 🌎 Latino · 🇪🇸 Castellano.</li>
         </ul>
-        <b>Cómo se ve el idioma</b>
-        <ul><li>La web separa cada idioma como ficha distinta: «(Latino)», «(Castellano)» o sin sufijo = subtitulado. El addon conserva ese título y marca el idioma con 💬/🌎/🇪🇸 en cada stream.</li></ul>
+        <p style="color:#72809d;font-size:13px;margin:0">IDs aceptados: IMDb <code>tt…</code> (Cinemeta), <code>kitsu:…</code> y <code>mal:…</code>. El addon busca el título en estrenosanime.net y mapea temporada/episodio a la ficha correcta de la web.</p></div>
+        <div class="mini"><b>Idiomas</b>
+        <ul>
+          <li>La web separa cada idioma como ficha distinta: «(Latino)», «(Castellano)» o sin sufijo = subtitulado.</li>
+          <li>Por eso puedes recibir hasta <b>3 grupos de streams</b> (uno por idioma disponible de ese título).</li>
+          <li>En <a href="/configure">⚙️ Configurar</a> puedes limitarlo a un solo idioma.</li>
+        </ul>
         </div>
       </div>
     </div>
@@ -119,7 +117,7 @@ function renderLanding({ base, manifest }) {
         <li>En modo <b>Auto</b> el addon intenta extraer el <b>vídeo directo</b> (.m3u8/.mp4) para reproducirlo dentro de Stremio; si un servidor no lo permite, aparece como <i>«↗️ Abrir en el navegador»</i>.</li>
         <li>Siempre tendrás la opción <b>«🌐 estrenosanime.net»</b> con la página oficial del episodio.</li>
       </ul>
-      <p style="color:#72809d;font-size:14px">Diagnóstico: <a href="/health">/health</a> · <a href="/debug/watch?slug=one-piece&amp;ep=1">/debug/watch?slug=one-piece&amp;ep=1</a> · Fuente: <a href="${BASE_URL}" target="_blank" rel="noopener">estrenosanime.net</a></p>
+      <p style="color:#72809d;font-size:14px">Diagnóstico: <a href="/health">/health</a> · <a href="/debug/map?id=tt0388629:1:1&amp;type=series">/debug/map?id=tt0388629:1:1</a> · <a href="/debug/watch?slug=one-piece&amp;ep=1">/debug/watch?slug=one-piece&amp;ep=1</a> · Fuente: <a href="${BASE_URL}" target="_blank" rel="noopener">estrenosanime.net</a></p>
     </div>
 
     <footer>Addon no oficial, sin ánimo de lucro. Ningún vídeo se aloja en este servidor: todo el contenido pertenece a sus respectivos autores y se enlaza desde estrenosanime.net (la propia web indica que tampoco aloja vídeos, solo enlaza contenido de terceros). Úsalo solo donde sea legal en tu país.<br><br>${manifest.name} v${manifest.version} · id: <code>${manifest.id}</code></footer>
@@ -141,7 +139,7 @@ function renderConfigure({ base }) {
         <option value="Latino">🌎 Solo Español Latino</option>
         <option value="Castellano">🇪🇸 Solo Castellano</option>
       </select>
-      <p style="color:#72809d;font-size:13px;margin:6px 0 0">Filtra los catálogos mixtos y la búsqueda. Los catálogos «Últimos episodios · …» ya vienen separados por idioma.</p>
+      <p style="color:#72809d;font-size:13px;margin:6px 0 0">Limita qué idiomas se devuelven en la lista de streams. Con «Todos» verás un grupo por cada idioma disponible del título.</p>
 
       <label for="resolver">▶️ Reproducción</label>
       <select id="resolver">

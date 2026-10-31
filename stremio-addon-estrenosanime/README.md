@@ -1,11 +1,11 @@
 <div align="center">
 
-# 🌸 Estrenos Anime ES — Addon para Stremio
+# 🌸 Estrenos Anime ES · Streams — Addon para Stremio
 
-**Anime en 💬 Sub Español · 🌎 Español Latino · 🇪🇸 Castellano**
-desde [estrenosanime.net](https://estrenosanime.net), dentro de Stremio.
+**▶️ Addon SOLO de streams** — Anime en 💬 Sub Español · 🌎 Español Latino · 🇪🇸 Castellano
+desde [estrenosanime.net](https://estrenosanime.net), sobre las fichas que ya tienes en Stremio.
 
-Catálogos, buscador, fichas completas con episodios y servidores — leído en vivo de la web.
+Sin catálogos ni fichas propias: abre cualquier anime (Cinemeta, Kitsu…) y elige sus servidores en español.
 
 </div>
 
@@ -15,24 +15,33 @@ Catálogos, buscador, fichas completas con episodios y servidores — leído en 
 
 | | |
 |---|---|
-| 📚 **11 catálogos** | Populares · Últimos episodios **Sub / Latino / Castellano** (¡por separado!) · Agregados · Actualizados · En emisión · Por género · Por formato · Películas |
-| 🔎 **Buscador** | Busca en toda la web y distingue el idioma de cada resultado |
-| 🗣️ **Idiomas reales** | La web publica cada idioma como ficha aparte (`one-piece`, `one-piece-latino`, `…-castellano`): el addon las respeta, las marca con 💬/🌎/🇪🇸 y las enlaza entre sí |
-| 📺 **Fichas completas** | Sinopsis, género, año, duración, estudio, estado, tráiler (PV) y lista de episodios |
-| ▶️ **Reproducción** | Lee los servidores reales del episodio (Multiserver y compañía) e intenta darte el **vídeo directo dentro de Stremio**; si un servidor no lo permite, lo abre en el navegador. Siempre incluye la página oficial |
-| ⚙️ **Configurable** | Idioma preferido, modo de reproducción y enlaces de descarga, desde la propia página del addon |
-| 🧰 **Diagnóstico** | Endpoints `/debug/*` y script `probe.js` para ver qué está leyendo de la web |
+| ▶️ **Solo streams** | El manifiesto expone **únicamente** el recurso `stream` (`resources: ["stream"]`, `catalogs: []`). Ni catálogos, ni metas |
+| 🎌 **IDs aceptados** | IMDb `tt…` y `tt…:T:E` (Cinemeta), `kitsu:{id}:{ep}` (Kitsu), `mal:{id}:{ep}` (MyAnimeList) y compat `ea:{slug}` |
+| 🗣️ **3 idiomas** | Para cada título devuelve hasta **un grupo por idioma** disponible en la web (💬 Sub · 🌎 Latino · 🇪🇸 Castellano), que allí son fichas separadas |
+| 🔢 **Mapeo de episodios** | Traduce Temporada/Episodio al nº real en la web: fichas «… Temporada N» con su numeración, series largas con numeración absoluta (desde la lista de Cinemeta) |
+| 📺 **Servidores reales** | Lee los servidores del episodio en `/ver/…` (normalmente *Multiserver*) e intenta el **vídeo directo dentro de Stremio**; si no es posible, «↗️ Abrir en el navegador». Siempre incluye la página oficial |
+| ⚙️ **Configurable** | Idiomas a devolver, directo/externo y enlaces de descarga |
+| 🧰 **Diagnóstico** | `/debug/map` muestra cómo se mapea un ID; `/debug/watch` qué servidores ve; CLI `probe.js` |
 
-> 📖 ¿Quieres saber cómo funciona la web por dentro? Lee
-> **[INVESTIGACION.md](./INVESTIGACION.md)**: rutas, modelo de idiomas,
-> reproductor «Multiserver», descargas, rangos de episodios y decisiones de diseño.
+> 📖 Investigación completa de la web (rutas, modelo de idiomas, reproductor,
+> rangos EPS…): **[INVESTIGACION.md](./INVESTIGACION.md)**.
 
 ---
 
-## 🚀 Instalación
+## 🎮 Cómo se usa
 
-Un addon de Stremio es un pequeño servidor web: primero lo **despliegas**
-(gratis) y después instalas su URL en Stremio.
+1. **Despliega** el addon (abajo) e **instálalo** en Stremio. No verás catálogos nuevos: es a propósito.
+2. Abre un anime desde **cualquier catálogo que ya tengas**: el oficial **Cinemeta** (fichas `tt…` de IMDb) sirve para películas y series conocidas; para anime se recomienda también el addon **Kitsu**, cuyas fichas (`kitsu:…`) este addon entiende.
+3. Entra en un episodio y, en la lista de fuentes, elige **EstrenosAnime** con tu idioma (🌎/🇪🇸/💬).
+
+> 💡 Si un título no tiene coincidencia automática en la web, el addon devuelve
+> una única opción «🔎 Buscar en estrenosanime.net» para abrirlo a mano.
+
+---
+
+## 🚀 Despliegue
+
+Un addon de Stremio es un pequeño servidor web: primero se despliega (gratis) y luego se instala su URL.
 
 ### Opción A — Render.com (gratis, recomendado)
 
@@ -43,15 +52,11 @@ Un addon de Stremio es un pequeño servidor web: primero lo **despliegas**
    - **Runtime:** Node · **Build:** `npm install` · **Start:** `npm start`
    - **Health Check Path:** `/health`
    *(o mueve el `render.yaml` de esta carpeta a la raíz del repo y usa **New → Blueprint**)*
-4. Cuando termine el despliegue, abre la URL que te da Render
-   (ej. `https://estrenosanime-stremio-addon.onrender.com`) y pulsa
-   **🚀 Instalar addon**. ¡Listo!
+4. Abre la URL de Render y pulsa **🚀 Instalar addon**.
 
-### Opción B — Beamup (hosting de addons de la comunidad Stremio)
+### Opción B — Beamup (hosting de addons de Stremio)
 
-1. Entra en [beamup.dev](https://beamup.dev) y crea un proyecto desde este repositorio.
-2. Detectará el `Dockerfile` de esta carpeta automáticamente.
-3. Abre la URL pública del proyecto e instala desde ahí.
+Crea un proyecto en [beamup.dev](https://beamup.dev) desde este repositorio: detectará el `Dockerfile` de esta carpeta automáticamente.
 
 ### Opción C — Docker (VPS, NAS, Raspberry Pi…)
 
@@ -71,50 +76,46 @@ npm start
 ```
 
 - En el **mismo PC**, Stremio Desktop acepta `http://127.0.0.1:7000/manifest.json`.
-- Para verlo en la **TV/móvil de tu red**, usa la IP local del PC
-  (ej. `http://192.168.1.50:7000/manifest.json`) con el addon abierto
-  (escucha en `0.0.0.0`). Para usarlo fuera de casa necesitas una URL
-  pública https (Opciones A/B o un túnel tipo Cloudflare Tunnel).
-
-### Instalar la URL en Stremio (manual)
-
-Copia la URL de tu manifiesto — `https://TU-DESPLIEGUE/manifest.json` — y en
-Stremio ve a **Complementos (🧩) → pegar URL / instalar**. También puedes
-abrir `https://TU-DESPLIEGUE/` en el navegador y usar los botones de instalación.
+- Para la **TV/móvil de tu red**, usa la IP local del PC (ej. `http://192.168.1.50:7000/manifest.json`); fuera de casa necesitas una URL pública https (Opciones A/B o un túnel tipo Cloudflare Tunnel).
 
 ---
 
 ## ⚙️ Configuración
 
-Abre `https://TU-DESPLIEGUE/configure` (o el ⚙️ del addon en Stremio):
+`https://TU-DESPLIEGUE/configure` (o el ⚙️ del addon en Stremio):
 
 | Opción | Qué hace |
 |---|---|
-| 🌐 **Idioma preferido** | `Todos / Subtitulado / Latino / Castellano`. Filtra los catálogos mixtos y la búsqueda. Los catálogos «Últimos episodios · …» ya son de un único idioma |
-| ▶️ **Reproducción** | `Auto` (intenta vídeo directo dentro de Stremio + externa) o `Solo externo` (siempre navegador) |
-| ⬇️ **Descargas** | Muestra también los enlaces de descarga del episodio (Krakenfiles, Gofile, 1fichier, vikingfile…) como opciones externas |
+| 🌐 **Idiomas a devolver** | `Todos / Subtitulado / Latino / Castellano`. Con «Todos» recibes un grupo por idioma disponible (orden: 🌎, 🇪🇸, 💬) |
+| ▶️ **Reproducción** | `Auto` (vídeo directo dentro de Stremio cuando se puede + externo) o `Solo externo` |
+| ⬇️ **Descargas** | Añade los enlaces de descarga del episodio (Krakenfiles, Gofile, 1fichier…) como opciones externas |
 
-La configuración viaja codificada en la propia URL del manifiesto, como en
-todos los addons de Stremio: sin cuentas ni nada guardado en el servidor.
+La configuración viaja codificada en la URL del manifiesto; no se guarda nada en el servidor.
 
 ---
 
-## ▶️ Cómo funciona la reproducción
+## 🔧 Cómo encuentra los streams
 
-1. Al abrir un episodio, el addon lee su página real
-   `/ver/{anime}/episodio-{n}` y extrae los servidores (normalmente
-   **«Multiserver»**), buscando en iframes, botones con `data-*`, scripts y,
-   si hiciera falta, endpoints AJAX del sitio (auto-descubiertos).
-2. Cada embed pasa por un **resolvedor genérico** (desofusca el *packer*
-   típico de Filemoon/VidHide/StreamWish/VOE/MixDrop, casos especiales de
-   DoodStream/StreamTape/OK.ru) para obtener el `.m3u8`/`.mp4` directo con
-   sus cabeceras (`Referer`/`User-Agent`) vía `proxyHeaders`.
-3. Lo que no se puede resolver aparece como **«↗️ Abrir en el navegador»** y
-   **siempre** se añade **«🌐 estrenosanime.net»** con la página oficial.
+```
+Petición de Stremio (stream/series/tt0388629:1:5)
+  -> título desde Cinemeta ("One Piece", año, lista de vídeos)
+  -> búsqueda en estrenosanime.net (+ variante "Temporada N" si T>1)
+  -> 1 ficha por idioma: one-piece (Sub) · one-piece-latino (Latino)
+  -> nº de episodio en la web:
+       · ficha con temporada  -> episodio dentro de la temporada
+       · ficha única completa -> posición absoluta (lista de Cinemeta)
+  -> /ver/{slug}/episodio-{n}: servidores (Multiserver, descargas...)
+  -> resolvedor de embeds -> directo (.m3u8/.mp4) o externo
+```
 
-> Los servidores gratuitos cambian con frecuencia: si uno deja de dar vídeo
-> directo, las opciones externas seguirán funcionando. Con
-> `/debug/watch?slug=…&ep=…` verás qué encontró el addon en tu servidor.
+Kitsu/MAL: el título sale de la API de Kitsu / Jikan y el episodio se usa tal
+cual (esas fichas ya son por temporada/título concreto).
+
+**Resolvedor de embeds** (`src/extractors.js`): busca medios directos,
+desofusca el *packer* de Dean Edwards (Filemoon/VidHide/StreamWish/VOE/
+MixDrop…), casos especiales DoodStream/StreamTape/OK.ru, y si la página
+carga servidores por AJAX los auto-descubre con el `episode_id`. Lo no
+resuelto queda como enlace externo — nunca te quedas sin opción.
 
 ---
 
@@ -122,89 +123,87 @@ todos los addons de Stremio: sin cuentas ni nada guardado en el servidor.
 
 ```bash
 npm install
-npm test            # 12 pruebas sin red (parsers con HTML de ejemplo realista)
+npm test            # 18 pruebas sin red
 npm start           # servidor en :7000
 
-# Diagnóstico contra la web real (desde una máquina con internet normal):
+# Diagnóstico contra la web real (máquina con internet normal):
+node scripts/probe.js map tt0388629:1:1 series     # mapeo de un ID IMDb
+node scripts/probe.js map kitsu:7442:5 anime
 node scripts/probe.js search "One Piece"
-node scripts/probe.js detail one-piece-latino
-node scripts/probe.js watch one-piece 1 --resolve
-node scripts/probe.js catalog /ultimo-castellano
+node scripts/probe.js watch one-piece-latino 1 --resolve
 ```
 
 ### Estructura
 
 ```
 src/
-├── index.js       # servidor Express: /, /configure, /health, /debug/* + router Stremio
-├── addon.js       # manifiesto + handlers (catalog / meta / stream)
-├── landing.js     # portada de instalación y página de configuración (ES)
-├── scraper.js     # lee listados, fichas y /ver/ de estrenosanime.net (cheerio)
+├── index.js       # Express: /, /configure, /health, /debug/* + router (solo stream)
+├── addon.js       # manifiesto SOLO-STREAM + handler de streams
+├── idmap.js       # IMDb/Kitsu/MAL -> título -> candidatos por idioma + nº episodio
+├── landing.js     # portada de instalación y /configure (ES)
+├── scraper.js     # lee buscador/listados, fichas y /ver/ de estrenosanime.net
 ├── extractors.js  # resolvedor de embeds (packer, HLS, AJAX auto-discovery)
-├── http.js        # fetch con cabeceras de navegador, timeouts, reintentos y caché
-├── config.js      # rutas, géneros e idiomas verificados de la web
-├── util.js        # idiomas por slug, IDs ea:, caché TTL, regex de medios
+├── http.js        # fetch con cabeceras de navegador, timeouts y caché
+├── config.js      # rutas/géneros/idiomas verificados de la web
+├── util.js        # idioma por slug, títulos/temporadas, IDs, caché TTL
 └── demo.js        # datos DEMO offline (solo con DEMO_FALLBACK=1)
-test/scraper.test.js
-scripts/probe.js   # CLI de diagnóstico
+test/ (scraper.test.js · idmap.test.js) · scripts/probe.js
 Dockerfile · docker-compose.yml · render.yaml · .env.example
 ```
+
+> Nota: `scraper.js` conserva funciones internas de listados/fichas porque el
+> **mapeo y el diagnóstico** las reutilizan (buscar, verificar conteos EPS).
+> Como recursos de **Stremio** el addon expone **solo `stream`**: `/catalog/…`
+> y `/meta/…` responden 404.
 
 ### Variables de entorno
 
 | Variable | Defecto | Uso |
 |---|---|---|
 | `PORT` | `7000` | Puerto del servidor |
-| `EA_BASE_URL` | `https://estrenosanime.net` | Dominio fuente (por si la web se muda de dominio/mirror) |
-| `EA_TIMEOUT_MS` / `EA_EMBED_TIMEOUT_MS` | `15000` / `12000` | Timeouts al leer la web y los servidores |
+| `EA_BASE_URL` | `https://estrenosanime.net` | Dominio fuente (por si la web se muda) |
+| `EA_TIMEOUT_MS` / `EA_EMBED_TIMEOUT_MS` | `15000` / `12000` | Timeouts a web y servidores |
 | `EA_USER_AGENT` | Chrome 126 | User-Agent de las peticiones |
-| `DEMO_FALLBACK` | *(off)* | `1` = si la web no responde, sirve catálogos DEMO con datos reales de ejemplo (solo para desarrollo/preview sin internet) |
+| `DEMO_FALLBACK` | *(off)* | `1` = datos DEMO si no hay salida a la web/Cinemeta (desarrollo/preview) |
 | `DEBUG` | *(on)* | `0` = desactiva los `/debug/*` públicos |
 
 ### Endpoints útiles
 
 | Ruta | Para qué |
 |---|---|
-| `/` | Portada con botones de instalación |
-| `/configure` | Generador de URL con tu configuración |
-| `/health` | Estado del addon (para Render/Docker) |
-| `/manifest.json` | Manifiesto (también `/{config}/manifest.json`) |
-| `/debug/watch?slug=one-piece&ep=1` | Servidores/descargas/IDs que ve el scraper (`&resolve=1` prueba el primer embed) |
-| `/debug/detail?slug=one-piece-latino` | Meta completa de una ficha |
+| `/` · `/configure` | Instalar (con/sin configuración) |
+| `/manifest.json` | Manifiesto solo-stream (también `/{config}/manifest.json`) |
+| `/stream/{type}/{id}.json` | **El único recurso de Stremio** |
+| `/health` | Estado (Render/Docker) |
+| `/debug/map?id=tt0388629:1:1&type=series` | Título, búsquedas y fichas elegidas por idioma |
+| `/debug/watch?slug=one-piece&ep=1` | Servidores/descargas/IDs (`&resolve=1` prueba el 1º embed) |
 | `/debug/search?q=naruto` | Resultados crudos del buscador con idioma detectado |
 
 ---
 
 ## ❓ Preguntas frecuentes
 
-**El catálogo sale vacío en Stremio.**
-Abre `/debug/search?q=naruto` en tu despliegue. Si ahí también falla, tu
-servidor no está llegando a estrenosanime.net (revisa con `probe.js`) o la web
-cambió: prueba a ajustar `EA_BASE_URL` si se mudó de dominio.
+**No veo ningún catálogo nuevo en Stremio.**
+Correcto: este addon es **solo de streams** por diseño. Busca el anime desde
+Cinemeta, Kitsu u otro catálogo que ya tengas; los servidores «EstrenosAnime»
+aparecen al elegir episodio.
 
-**Un episodio solo ofrece «Abrir en el navegador».**
-Ese servidor no entregó vídeo directo en ese momento (pasa con algunos hosts
-que exigen interacción). La opción 🌐 abre la página oficial con todos sus
-servidores. En la web el servidor principal es «Multiserver», un agregador:
-su comportamiento puede variar por episodio.
+**Un título de Cinemeta no devuelve streams en español.**
+Puede que la web lo tenga con otro nombre (romaji vs inglés) o que no esté.
+Prueba el mismo título desde el **addon Kitsu** (sus títulos suelen coincidir
+mejor con los de la web) y revisa el mapeo en
+`/debug/map?id=tt…:T:E&type=series`.
 
-**¿One Piece tarda en abrir la ficha?**
-Tiene 1180 episodios: la ficha genera las 1180 entradas (es un JSON más
-grande de lo normal, pero entra dentro de lo que Stremio maneja). Queda en
-caché del addon 6 h.
+**Sale un episodio equivocado en series por temporadas.**
+Repórtalo con la salida de `/debug/map` para ese ID: allí se ve la ficha y el
+nº elegidos (temporada vs. absoluto) y se puede ajustar la heurística.
 
-**¿Puedo buscar solo en Latino/Castellano?**
-Sí: instala el addon desde `/configure` con tu idioma preferido, o usa los
-catálogos «Últimos episodios · 🌎 Latino / 🇪🇸 Castellano».
+**Solo ofrece «Abrir en el navegador».**
+Ese servidor no entregó vídeo directo en ese momento. La opción
+«🌐 estrenosanime.net» abre la página oficial del episodio con todos sus servidores.
 
-**¿Se puede publicar en el catálogo oficial de addons de Stremio?**
-Stremio pide que los addons del catálogo central vayan firmados
-(`stremioAddonsConfig`). La instalación por URL (este método) no lo
-necesita; la publicación oficial queda como posible mejora futura.
-
-**Hoja de ruta posible:** soporte de IDs de IMDb (`tt…`) para ofrecer estos
-streams también desde fichas de otros catálogos, calendario (`/schedule`),
-y extractores dedicados adicionales según lo que revele `/debug/watch`.
+**¿Y si la web cambia de dominio?**
+Define `EA_BASE_URL=https://nuevo-dominio` y reinicia: no hay que tocar código.
 
 ---
 
@@ -217,4 +216,4 @@ Todos los títulos, imágenes y vídeos pertenecen a sus respectivos autores.
 Úsalo únicamente donde sea legal en tu país y, si te gusta un anime,
 apoya su lanzamiento oficial.
 
-Hecho con 💙 para la comunidad hispanohablante · v1.0.0
+Hecho con 💙 para la comunidad hispanohablante · v1.1.0 (solo-stream)

@@ -3,15 +3,42 @@
 /**
  * Datos DEMO (offline).
  * ---------------------
- * Solo se usan si DEMO_FALLBACK=1 y la web no responde (p. ej. en la
- * vista previa de Arena, donde el sandbox no tiene salida a
+ * Solo se usan si DEMO_FALLBACK=1 y la web/Cinemeta no responden (p. ej.
+ * en la vista previa de Arena, donde el sandbox no tiene salida a
  * estrenosanime.net). Son títulos/posters REALES recogidos durante la
- * investigación, para poder ver cómo se comporta el addon en Stremio.
+ * investigación, para probar el mapeo IMDb->streams sin red.
  * En un despliegue normal (Render/Beamup/VPS) esto nunca se activa.
+ * (demoCatalogMetas/demoMeta quedan como utilidades históricas; el addon
+ *  v1.1+ es solo-stream y solo usa demoSearchItems/DEMO_IMDB_TITLES.)
  */
 
 const { LANGS, BASE_URL } = require('./config');
 const { itemToMetaPreview, detailToMeta } = require('./scraper');
+const { normalizeTitle, titleTokens } = require('./util');
+
+/** IMDb -> título, solo para probar el modo solo-stream sin red. */
+const DEMO_IMDB_TITLES = {
+  tt0388629: 'One Piece', // One Piece
+  tt0409591: 'Naruto',
+  tt0434665: 'Bleach',
+  tt7441658: 'Black Clover',
+  tt12343534: 'Jujutsu Kaisen',
+  tt9335498: 'Kimetsu no Yaiba', // Demon Slayer
+  tt4644488: 'Dragon Ball Super',
+};
+
+/** Buscador offline sobre DEMO_ITEMS (misma forma que scraper.searchItems). */
+function demoSearchItems(query) {
+  const qTokens = titleTokens(query, { stripSeason: true });
+  if (!qTokens.length) return [];
+  const qNorm = normalizeTitle(query);
+  return DEMO_ITEMS.filter((item) => {
+    const tNorm = normalizeTitle(item.title);
+    if (tNorm.includes(qNorm) || qNorm.includes(tNorm)) return true;
+    const tTokens = titleTokens(item.title, { stripSeason: true });
+    return qTokens.some((t) => tTokens.includes(t));
+  });
+}
 
 const P = (hash) => `${BASE_URL}/uploads/anime/${hash}.jpg`;
 
@@ -79,4 +106,4 @@ function demoMeta(slug) {
   return detailToMeta(detail);
 }
 
-module.exports = { DEMO_ITEMS, demoCatalogMetas, demoMeta };
+module.exports = { DEMO_ITEMS, demoCatalogMetas, demoMeta, demoSearchItems, DEMO_IMDB_TITLES };
