@@ -1,0 +1,15 @@
+# Beamup/Dokku: el slug solo necesita el servidor del addon.
+# La app Android vive en este mismo repositorio, pero no se despliega.
+app/
+.github/
+*.gradle
+gradle.properties
+
+# Ficheros del addon que no hacen falta en tiempo de ejecución
+stremio-addon-estrenosanime/node_modules/
+stremio-addon-estrenosanime/test/
+stremio-addon-estrenosanime/scripts/
+stremio-addon-estrenosanime/Dockerfile
+stremio-addon-estrenosanime/docker-compose.yml
+stremio-addon-estrenosanime/render.yaml
+*.md

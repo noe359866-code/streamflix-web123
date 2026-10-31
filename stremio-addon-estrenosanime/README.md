@@ -59,7 +59,24 @@ abre cualquier anime (Cinemeta, Kitsu…) y elige proveedor + idioma.
 
 Un addon de Stremio es un pequeño servidor web: primero se despliega (gratis) y luego se instala su URL.
 
-### Opción A — Render.com (gratis, recomendado)
+### Opción A — Beamup (hosting oficial de addons de Stremio, recomendado)
+
+Este repositorio ya viene listo para Beamup: la **raíz** incluye el
+`package.json`/`Procfile` Herokuish y `beamup.json`, porque Beamup despliega
+la raíz del repo Git (la app Android queda fuera con `.slugignore`).
+
+```bash
+# Desde la RAÍZ de tu clon (no desde esta subcarpeta)
+npm install -g beamup-cli
+beamup config        # host: a.baby-beamup.club + tu usuario de GitHub
+beamup init anime-espanol-multi
+beamup deploy
+```
+
+Guía completa (CLI o GitHub Actions, claves SSH, logs y solución de
+problemas): **[`../BEAMUP.md`](../BEAMUP.md)**.
+
+### Opción B — Render.com (gratis)
 
 1. Haz *fork* de este repositorio (o usa este mismo repo si es tuyo).
 2. En [Render](https://render.com) → **New → Web Service** → conecta el repo.
@@ -70,10 +87,6 @@ Un addon de Stremio es un pequeño servidor web: primero se despliega (gratis) y
    *(o mueve el `render.yaml` de esta carpeta a la raíz del repo y usa **New → Blueprint**)*
 4. Abre la URL de Render y pulsa **🚀 Instalar addon**.
 
-### Opción B — Beamup (hosting de addons de Stremio)
-
-Crea un proyecto en [beamup.dev](https://beamup.dev) desde este repositorio: detectará el `Dockerfile` de esta carpeta automáticamente.
-
 ### Opción C — Docker (VPS, NAS, Raspberry Pi…)
 
 ```bash
@@ -82,7 +95,7 @@ docker compose up -d --build
 # Addon en http://localhost:7000
 ```
 
-### Opción D — En tu PC (Node.js ≥ 18)
+### Opción D — En tu PC (Node.js 22)
 
 ```bash
 cd stremio-addon-estrenosanime

@@ -5,11 +5,27 @@ on:
   push:
     paths:
       - 'stremio-addon-estrenosanime/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Procfile'
+      - 'beamup.json'
+      - '.slugignore'
+      - '.nvmrc'
+      - 'BEAMUP.md'
       - '.github/workflows/addon-test.yml'
+      - '.github/workflows/deploy-beamup.yml'
   pull_request:
     paths:
       - 'stremio-addon-estrenosanime/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'Procfile'
+      - 'beamup.json'
+      - '.slugignore'
+      - '.nvmrc'
+      - 'BEAMUP.md'
       - '.github/workflows/addon-test.yml'
+      - '.github/workflows/deploy-beamup.yml'
   workflow_dispatch:
 
 concurrency:
@@ -86,3 +102,35 @@ jobs:
           curl -fsS --max-time 180 "http://127.0.0.1:7000/stream/series/tt0388629%3A1%3A1.json" | grep -q '"streams"'
           curl -fsS -o /dev/null -w "landing %{http_code}\n" http://127.0.0.1:7000/
           echo "OK: solo-stream, 5 proveedores, sin demo ni configurador"
+
+  beamup-wrapper:
+    name: Envoltorio Beamup (raíz)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # Simula la entrada Herokuish/Dokku: instalar y arrancar desde raíz.
+      - name: Instalar en raíz y smoke
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          node -e "const p=require('./beamup.json'); if(p.projectName!=='anime-espanol-multi') process.exit(1)"
+          grep -Fxq 'web: npm start' Procfile
+          PORT=7101 npm start &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID || true" EXIT
+          for i in $(seq 1 20); do
+            curl -fsS http://127.0.0.1:7101/health && break || sleep 1
+          done
+          curl -fsS http://127.0.0.1:7101/manifest.json | grep -q '"resources":\["stream"\]'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:7101/configure)" = "404"
+          echo "OK: Beamup arranca desde la raíz sin desplegar Android"

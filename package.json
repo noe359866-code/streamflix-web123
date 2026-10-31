@@ -1,0 +1,23 @@
+{
+  "name": "anime-espanol-multi-beamup",
+  "version": "1.3.0",
+  "private": true,
+  "description": "Entrada de Beamup/Dokku para el addon de Stremio Anime Español Multi (el código vive en stremio-addon-estrenosanime/).",
+  "main": "stremio-addon-estrenosanime/src/index.js",
+  "scripts": {
+    "start": "node stremio-addon-estrenosanime/src/index.js",
+    "start:addon": "npm --prefix stremio-addon-estrenosanime start",
+    "test": "npm --prefix stremio-addon-estrenosanime test",
+    "test:addon": "npm --prefix stremio-addon-estrenosanime test",
+    "probe": "npm --prefix stremio-addon-estrenosanime run probe --"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "express": "^4.19.2",
+    "stremio-addon-sdk": "^1.6.10"
+  }
+}

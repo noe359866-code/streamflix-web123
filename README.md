@@ -152,7 +152,9 @@ sobre las fichas de Cinemeta/IMDb, Kitsu o MAL devuelve los servidores de
 [animed23.com](https://animed23.com) en
 💬 **Subtitulado** · 🌎 **Latino** · 🇪🇸 **Castellano**.
 Sin catálogos ni fichas propias (únicamente el recurso `stream`),
-**sin datos demo y sin configurador**.
+**sin datos demo y sin configurador**. La raíz del repo está preparada
+para desplegarlo en **Beamup** sin desplegar la app Android:
+ver [`BEAMUP.md`](BEAMUP.md).
 
 > Es un proyecto **independiente** de la app Android (no comparte código ni
 > afecta su compilación). Guía completa en
