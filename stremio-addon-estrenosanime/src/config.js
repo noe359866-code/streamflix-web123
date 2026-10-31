@@ -14,6 +14,15 @@ const BASE_URL = (process.env.EA_BASE_URL || 'https://estrenosanime.net').replac
 // animeonline.lat — si el principal cae, define INF_BASE_URL.
 const INF_BASE_URL = (process.env.INF_BASE_URL || 'https://infinityanime.net').replace(/\/+$/, '');
 
+// Proveedores extra (v1.3.0):
+//  - AnimeJara : /catalogo?q= · ficha /anime/{slug}/ · episodio
+//                /episode/{slug}-{T}x{E}/ · película /movie/{slug}
+//  - Latanime  : /buscar?q= · ficha /anime/{slug} · ver /ver/{slug}-episodio-{n}
+//  - AnimeD23  : /?s= · ficha /anime/{slug}/ · capítulo /capitulo/{slug}-ep-{n}/
+const JARA_BASE_URL = (process.env.JARA_BASE_URL || 'https://animejara.com').replace(/\/+$/, '');
+const LAT_BASE_URL = (process.env.LAT_BASE_URL || 'https://latanime.org').replace(/\/+$/, '');
+const D23_BASE_URL = (process.env.D23_BASE_URL || 'https://animed23.com').replace(/\/+$/, '');
+
 // Rutas verificadas de InfinityAnime (ver INVESTIGACION-INFINITY.md):
 //  - Ficha:      /{slug}/
 //  - Reproducir: /{slug}/episodio-{n}/
@@ -89,7 +98,7 @@ const SITE_TYPES = ['Pelicula', 'TV', 'OVA', 'ONA', 'Especial', 'Music'];
 
 const TIMEOUT_MS = Number(process.env.EA_TIMEOUT_MS || 15000);
 const EMBED_TIMEOUT_MS = Number(process.env.EA_EMBED_TIMEOUT_MS || 12000);
-const DEMO_FALLBACK = process.env.DEMO_FALLBACK === '1';
+// Reglas del proyecto: SIN datos demo y SIN configurador.
 const DEBUG_ENABLED = process.env.DEBUG !== '0';
 
 // TTL de caché en segundos
@@ -104,6 +113,9 @@ const CACHE_TTL = {
 module.exports = {
   BASE_URL,
   INF_BASE_URL,
+  JARA_BASE_URL,
+  LAT_BASE_URL,
+  D23_BASE_URL,
   USER_AGENT,
   ROUTES,
   INF_ROUTES,
@@ -112,7 +124,6 @@ module.exports = {
   SITE_TYPES,
   TIMEOUT_MS,
   EMBED_TIMEOUT_MS,
-  DEMO_FALLBACK,
   DEBUG_ENABLED,
   CACHE_TTL,
 };

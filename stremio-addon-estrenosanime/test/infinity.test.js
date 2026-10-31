@@ -180,25 +180,37 @@ test('normalizeWatch: Estrenos hereda el idioma de la ficha; Infinity conserva l
   assert.equal(inf.directMedia[0].lang.key, 'sub');
 });
 
-test('manifest v1.2.0: SOLO stream + ia: + selector de proveedores', () => {
+test('manifest v1.3.0: SOLO stream, 5 proveedores, sin configurador', () => {
   assert.deepEqual(manifest.resources, ['stream']);
   assert.deepEqual(manifest.catalogs, []);
-  assert.ok(manifest.idPrefixes.includes('ea:'));
-  assert.ok(manifest.idPrefixes.includes('ia:'));
-  const prov = manifest.config.find((c) => c.key === 'proveedores');
-  assert.deepEqual(prov.options, ['Todos', 'EstrenosAnime', 'InfinityAnime']);
+  for (const p of ['ea:', 'ia:', 'aj:', 'lt:', 'd23:']) {
+    assert.ok(manifest.idPrefixes.includes(p), `falta prefijo ${p}`);
+  }
+  // Sin configurador: ni `config` ni behaviorHints.configurable
+  assert.equal(manifest.config, undefined);
+  assert.equal(manifest.behaviorHints.configurable, false);
+  assert.equal(manifest.behaviorHints.configurationRequired, false);
   assert.ok(!('catalog' in manifest && manifest.catalog.length));
 });
 
-test('parseOwnStreamId: ea: (Estrenos) e ia: (Infinity)', () => {
+test('parseOwnStreamId: ea:/ia:/aj:/lt:/d23:', () => {
   assert.deepEqual(parseOwnStreamId('ia:one-piece-tv:1:1180'), {
-    providerId: 'infinity', slug: 'one-piece-tv', episode: 1180, isMovie: false,
+    providerId: 'infinity', slug: 'one-piece-tv', season: 1, episode: 1180, isMovie: false,
   });
   assert.deepEqual(parseOwnStreamId('ea:one-piece-latino:1:5'), {
-    providerId: 'estrenos', slug: 'one-piece-latino', episode: 5, isMovie: false,
+    providerId: 'estrenos', slug: 'one-piece-latino', season: 1, episode: 5, isMovie: false,
+  });
+  assert.deepEqual(parseOwnStreamId('aj:black-clover:2:3'), {
+    providerId: 'animejara', slug: 'black-clover', season: 2, episode: 3, isMovie: false,
+  });
+  assert.deepEqual(parseOwnStreamId('lt:one-piece:5'), {
+    providerId: 'latanime', slug: 'one-piece', season: 1, episode: 5, isMovie: false,
+  });
+  assert.deepEqual(parseOwnStreamId('d23:black-clover:7'), {
+    providerId: 'animed23', slug: 'black-clover', season: 1, episode: 7, isMovie: false,
   });
   assert.deepEqual(parseOwnStreamId('ia:tamako-love-story'), {
-    providerId: 'infinity', slug: 'tamako-love-story', episode: 1, isMovie: true,
+    providerId: 'infinity', slug: 'tamako-love-story', season: 1, episode: 1, isMovie: true,
   });
   assert.equal(parseOwnStreamId('tt0388629'), null);
 });

@@ -15,7 +15,7 @@
  */
 
 const cheerio = require('cheerio');
-const { INF_BASE_URL, INF_ROUTES, LANGS, DEMO_FALLBACK } = require('./config');
+const { INF_BASE_URL, INF_ROUTES, LANGS } = require('./config');
 const { fetchText } = require('./http');
 const {
   normalizeSpaces,
@@ -250,10 +250,6 @@ async function searchInf(query) {
   }
 
   if (htmlRes.status === 'rejected' && restRes.status === 'rejected') {
-    if (DEMO_FALLBACK) {
-      // eslint-disable-next-line global-require
-      return require('./demo').demoSearchItemsInf(query);
-    }
     throw htmlRes.reason;
   }
 

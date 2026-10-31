@@ -12,9 +12,13 @@
  *   - Propio (compat) : ea:{slug}[:1:{ep}]   (lo resuelve addon.js)
  *
  * Flujo: ID externo -> título(s) + año [+ lista de episodios de Cinemeta]
- *        -> búsqueda en CADA proveedor activo -> trabajos de stream:
- *          · EstrenosAnime: 1 candidato por idioma (Sub/Latino/Castellano)
- *          · InfinityAnime: la mejor ficha única (Sub+Dub en el episodio)
+ *        -> búsqueda en TODOS los proveedores (sin configuración):
+ *          · modo perLang (EstrenosAnime, Latanime): 1 candidato por
+ *            idioma (Sub / Latino / Castellano).
+ *          · modo single (InfinityAnime, AnimeJara, AnimeD23): la mejor
+ *            ficha única; los idiomas salen de la página del episodio.
+ *        AnimeJara agrupa temporadas (multiSeason): el trabajo conserva
+ *        temporada + episodio dentro de temporada para construir SxE.
  *
  * El nº de episodio es lo delicado: la web publica cada temporada como
  * ficha aparte ("... Temporada 2 (Latino)") con numeración propia, pero
@@ -25,10 +29,8 @@
  *     desde la lista de vídeos de Cinemeta.
  */
 
-const { DEMO_FALLBACK } = require('./config');
 const { fetchText } = require('./http');
-const { PROVIDERS_BY_ID } = require('./providers');
-const demo = require('./demo');
+const { PROVIDERS, PROVIDERS_BY_ID } = require('./providers');
 const {
   titleTokens,
   seasonOfTitle,
@@ -121,6 +123,9 @@ async function fetchExternalInfo(parsed, type) {
 function episodeForCandidate(item, ctx) {
   if (ctx.isMovie) return 1;
   const ep = ctx.episode || 1;
+  // Ficha que agrupa temporadas (AnimeJara SxE): siempre el episodio
+  // dentro de la temporada pedida; la temporada va aparte en el trabajo.
+  if (item.multiSeason) return ep;
   if (ctx.ignoreSeason) return ep;
   const season = ctx.season || 1;
   const candidateSeason = seasonOfTitle(item.title);
@@ -162,6 +167,8 @@ function scoreCandidate(item, ctx, position = 99) {
   if (ctx.season && !ctx.ignoreSeason) {
     const cs = seasonOfTitle(item.title);
     if (cs === ctx.season) best += 90;
+    // Ficha multi-temporada: sirve para cualquier temporada pedida.
+    else if (item.multiSeason) best += 40;
     // Sin temporada indicada solo sirve de respaldo absoluto: menos fiable.
     else if (cs === null) best += ctx.season > 1 ? -15 : 5;
   }
@@ -178,7 +185,7 @@ function scoreCandidate(item, ctx, position = 99) {
  * Devuelve trabajos [{slug, episode, lang, title, score}] en el orden
  * de idiomas indicado.
  */
-function pickJobsByLang(items, ctx, langOrder = ['lat', 'cast', 'sub']) {
+function pickJobsByLang(items, ctx, langOrder = ['lat', 'cast', 'sub'], providerId = 'estrenos') {
   const withPos = items.map((item, i) => ({ item, position: i }));
   const jobs = [];
   for (const langKey of langOrder) {
@@ -198,9 +205,11 @@ function pickJobsByLang(items, ctx, langOrder = ['lat', 'cast', 'sub']) {
     // claros (tipo equivocado hunde la puntuación por debajo del umbral).
     if (top.score < 10 && !(top.position < 3 && top.score > -40)) continue;
     jobs.push({
-      provider: 'estrenos',
+      provider: providerId,
       slug: top.item.slug,
       episode: top.episode,
+      season: seasonOfTitle(top.item.title) || ctx.season || 1,
+      isMovie: Boolean(ctx.isMovie),
       lang: top.item.lang,
       title: top.item.title,
       score: top.score,
@@ -231,6 +240,9 @@ function pickSingleJob(items, ctx, providerId = 'infinity') {
     provider: providerId,
     slug: top.item.slug,
     episode: top.episode,
+    season: ctx.season || seasonOfTitle(top.item.title) || 1,
+    isMovie: Boolean(ctx.isMovie),
+    multiSeason: Boolean(top.item.multiSeason),
     lang: null, // multi-idioma: se resuelve en el watch
     hasLat: Boolean(top.item.hasLat),
     title: top.item.title,
@@ -246,11 +258,6 @@ async function searchProvider(providerId, query) {
   try {
     return await PROVIDERS_BY_ID[providerId].search(query);
   } catch (err) {
-    if (DEMO_FALLBACK) {
-      return providerId === 'infinity'
-        ? demo.demoSearchItemsInf(query)
-        : demo.demoSearchItems(query);
-    }
     console.error(`[idmap] buscar "${query}" en ${providerId}: ${err.message}`);
     return [];
   }
@@ -269,11 +276,7 @@ async function resolveExternal(parsed, type, { langOrder, providers: providerIds
     info = await fetchExternalInfo(parsed, type);
   } catch (err) {
     console.error(`[idmap] título de ${parsed.source}:${parsed.sourceId}: ${err.message}`);
-    const demoTitle = DEMO_FALLBACK && parsed.source === 'imdb'
-      ? demo.DEMO_IMDB_TITLES[parsed.sourceId]
-      : '';
-    if (!demoTitle) return { title: '', jobs: [], error: err.message };
-    info = { titles: [demoTitle], year: null, videos: null };
+    return { title: '', jobs: [], error: err.message };
   }
   const titles = (info.titles || []).filter(Boolean);
   if (!titles.length) return { title: '', jobs: [] };
@@ -302,8 +305,8 @@ async function resolveExternal(parsed, type, { langOrder, providers: providerIds
   if (titles[1]) addQuery(titles[1]);
 
   const active = Array.isArray(providerIds) && providerIds.length
-    ? providerIds
-    : ['estrenos', 'infinity'];
+    ? providerIds.filter((id) => PROVIDERS_BY_ID[id])
+    : PROVIDERS.map((p) => p.id); // sin configurador: todos
   const queriesUsed = queries.slice(0, 4);
   const perProvider = await Promise.all(active.map(async (providerId) => {
     const bySlug = new Map();
@@ -317,11 +320,12 @@ async function resolveExternal(parsed, type, { langOrder, providers: providerIds
       }
     }
     const items = [...bySlug.values()];
-    if (providerId === 'infinity') {
+    const provider = PROVIDERS_BY_ID[providerId];
+    if (provider.mode === 'single') {
       const job = pickSingleJob(items, ctx, providerId);
       return job ? [job] : [];
     }
-    return pickJobsByLang(items, ctx, langOrder);
+    return pickJobsByLang(items, ctx, langOrder, providerId);
   }));
   const jobs = perProvider.flat();
   return { title: titles[0], titles, ctx, queries: queriesUsed, providers: active, jobs };
@@ -337,3 +341,4 @@ module.exports = {
   searchProvider,
   resolveExternal,
 };
+;

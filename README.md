@@ -143,19 +143,24 @@ Si no defines esas variables, el CI crea un keystore temporal para firmar el rel
 ## 🌸 Extra: Addon de Stremio «Anime Español Multi · Streams»
 
 Este repo también incluye, en [`stremio-addon-estrenosanime/`](stremio-addon-estrenosanime/),
-un **addon de Stremio solo de streams** (Node.js) con dos proveedores:
+un **addon de Stremio solo de streams** (Node.js) con **cinco proveedores**:
 sobre las fichas de Cinemeta/IMDb, Kitsu o MAL devuelve los servidores de
-[estrenosanime.net](https://estrenosanime.net) e
-[infinityanime.net](https://infinityanime.net) en español
+[estrenosanime.net](https://estrenosanime.net),
+[infinityanime.net](https://infinityanime.net),
+[animejara.com](https://animejara.com),
+[latanime.org](https://latanime.org) y
+[animed23.com](https://animed23.com) en
 💬 **Subtitulado** · 🌎 **Latino** · 🇪🇸 **Castellano**.
-Sin catálogos ni fichas propias, únicamente el recurso `stream`.
+Sin catálogos ni fichas propias (únicamente el recurso `stream`),
+**sin datos demo y sin configurador**.
 
 > Es un proyecto **independiente** de la app Android (no comparte código ni
 > afecta su compilación). Guía completa en
 > [`stremio-addon-estrenosanime/README.md`](stremio-addon-estrenosanime/README.md)
 > e investigación de las webs en
 > [`INVESTIGACION.md`](stremio-addon-estrenosanime/INVESTIGACION.md) ·
-> [`INVESTIGACION-INFINITY.md`](stremio-addon-estrenosanime/INVESTIGACION-INFINITY.md).
+> [`INVESTIGACION-INFINITY.md`](stremio-addon-estrenosanime/INVESTIGACION-INFINITY.md) ·
+> [`INVESTIGACION-PROVEEDORES-EXTRA.md`](stremio-addon-estrenosanime/INVESTIGACION-PROVEEDORES-EXTRA.md).
 
 ---
 

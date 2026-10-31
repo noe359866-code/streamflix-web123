@@ -3,11 +3,12 @@
 # 🌸 Anime Español Multi · Streams — Addon para Stremio
 
 **▶️ Addon SOLO de streams** — Anime en 💬 Sub Español · 🌎 Español Latino · 🇪🇸 Castellano
-desde **[estrenosanime.net](https://estrenosanime.net)** e **[infinityanime.net](https://infinityanime.net)**,
-sobre las fichas que ya tienes en Stremio.
+desde **[estrenosanime.net](https://estrenosanime.net)**, **[infinityanime.net](https://infinityanime.net)**,
+**[animejara.com](https://animejara.com)**, **[latanime.org](https://latanime.org)** y
+**[animed23.com](https://animed23.com)**, sobre las fichas que ya tienes en Stremio.
 
-Sin catálogos ni fichas propias: abre cualquier anime (Cinemeta, Kitsu…) y elige
-proveedor + idioma entre sus servidores en español.
+Sin catálogos ni fichas propias, **sin datos demo** y **sin nada que configurar**:
+abre cualquier anime (Cinemeta, Kitsu…) y elige proveedor + idioma.
 
 </div>
 
@@ -17,29 +18,40 @@ proveedor + idioma entre sus servidores en español.
 
 | | |
 |---|---|
-| ▶️ **Solo streams** | El manifiesto expone **únicamente** el recurso `stream` (`resources: ["stream"]`, `catalogs: []`). Ni catálogos, ni metas |
-| 🌐 **2 proveedores** | **EstrenosAnime** (Sub/Latino/Castellano, una ficha por idioma) e **InfinityAnime** (Sub + Latino «Dub» en la misma ficha). Elegibles en configuración: `Todos / EstrenosAnime / InfinityAnime` |
-| 🎌 **IDs aceptados** | IMDb `tt…` y `tt…:T:E` (Cinemeta), `kitsu:{id}:{ep}` (Kitsu), `mal:{id}:{ep}` (MyAnimeList) y compat `ea:{slug}` / `ia:{slug}` |
-| 🗣️ **3 idiomas** | Grupos por **proveedor + idioma** (orden: 🌎 Latino, 🇪🇸 Castellano, 💬 Sub). El Castellano lo aporta EstrenosAnime; InfinityAnime etiqueta Sub/Latino |
-| 🔢 **Mapeo de episodios** | Traduce Temporada/Episodio al nº real en cada web: fichas de temporada con su numeración, series largas con numeración absoluta (desde la lista de Cinemeta) |
-| 📺 **Servidores reales** | EstrenosAnime `/ver/…` (Multiserver…) e InfinityAnime (grupos Sub/Dub + descargas Filemoon/Vidara/MP4Upload/StreamTape convertidas a reproductor). Intenta el **vídeo directo dentro de Stremio**; si no, «↗️ Abrir en el navegador» + página oficial de cada web |
-| ⚙️ **Configurable** | Proveedores, idiomas a devolver, directo/externo y enlaces de descarga |
-| 🧰 **Diagnóstico** | `/debug/map` (mapeo con `provider` por trabajo), `/debug/watch?provider=…`, `/debug/search?provider=…`; CLI `probe.js` |
+| ▶️ **Solo streams** | El manifiesto expone **únicamente** el recurso `stream` (`resources: ["stream"]`, `catalogs: []`). Ni catálogos, ni metas: `/catalog/…` y `/meta/…` responden 404 |
+| 🚫 **Sin configurador** | No hay `config` en el manifiesto (`configurable: false`) ni página `/configure`. Instalar y listo: se consultan **siempre los 5 proveedores** y todos los idiomas |
+| 🎞️ **Sin demos** | Cero datos de ejemplo: todo se lee en vivo de las webs. Si una web no responde, queda la página oficial del episodio |
+| 🌐 **5 proveedores** | **EstrenosAnime** · **InfinityAnime** · **AnimeJara** · **Latanime** · **AnimeD23** |
+| 🎌 **IDs aceptados** | IMDb `tt…` y `tt…:T:E` (Cinemeta), `kitsu:{id}:{ep}`, `mal:{id}:{ep}` y compatibilidad `ea:` · `ia:` · `aj:` · `lt:` · `d23:{slug}[:T:E]` |
+| 🗣️ **3 idiomas** | Grupos por **proveedor + idioma** (orden: 🌎 Latino, 🇪🇸 Castellano, 💬 Sub) según lo que cada web publique |
+| 🔢 **Mapeo de episodios** | Traduce Temporada/Episodio al formato real de cada web: fichas por temporada, numeración absoluta (lista de Cinemeta) y **SxE** en AnimeJara |
+| 📺 **Servidores reales** | Filemoon, Voe, MP4Upload, VidHide, StreamWish, StreamTape, DoodStream, OK.ru, MixDrop, Sibnet… con **resolvers por reproductor**; directo dentro de Stremio cuando se puede, si no «↗️ Abrir en el navegador» |
+| 🧰 **Diagnóstico** | `/debug/map`, `/debug/watch?provider=…`, `/debug/search?provider=…` y CLI `scripts/probe.js` |
 
-> 📖 Investigación completa de las webs: **[INVESTIGACION.md](./INVESTIGACION.md)**
-> (EstrenosAnime) · **[INVESTIGACION-INFINITY.md](./INVESTIGACION-INFINITY.md)**
-> (InfinityAnime: WordPress, REST, grupos Sub/Dub, descargas→embeds).
+> 📖 Investigación de las webs: **[INVESTIGACION.md](./INVESTIGACION.md)** (EstrenosAnime) ·
+> **[INVESTIGACION-INFINITY.md](./INVESTIGACION-INFINITY.md)** (InfinityAnime) ·
+> **[INVESTIGACION-PROVEEDORES-EXTRA.md](./INVESTIGACION-PROVEEDORES-EXTRA.md)** (AnimeJara, Latanime y AnimeD23).
+
+### Proveedores e idiomas
+
+| Proveedor | Modelo | Idiomas |
+|---|---|---|
+| **EstrenosAnime** | 1 ficha por idioma (`one-piece` · `-latino` · `-castellano`) | 💬 Sub · 🌎 Latino · 🇪🇸 Castellano |
+| **InfinityAnime** | 1 ficha; grupos Sub/Dub en el episodio | 💬 Sub · 🌎 Latino (Dub) |
+| **AnimeJara** | 1 ficha, temporadas agrupadas; episodio `/episode/{slug}-{T}x{E}/`, película `/movie/{slug}` | 🌎 Latino · 💬 Japonés/Sub · 🇪🇸 Castellano |
+| **Latanime** | Fichas por idioma; buscador `/buscar?q=`; embeds en `data-player` (base64) | 🌎 Latino · 🇪🇸 Castellano · 💬 Sub |
+| **AnimeD23** | WordPress; ficha por temporada; capítulo `/capitulo/{slug}-ep-{n}/` | 🌎 Lat · 💬 Sub (badge por episodio) |
 
 ---
 
 ## 🎮 Cómo se usa
 
 1. **Despliega** el addon (abajo) e **instálalo** en Stremio. No verás catálogos nuevos: es a propósito.
-2. Abre un anime desde **cualquier catálogo que ya tengas**: el oficial **Cinemeta** (fichas `tt…` de IMDb) sirve para películas y series conocidas; para anime se recomienda también el addon **Kitsu**, cuyas fichas (`kitsu:…`) este addon entiende.
-3. Entra en un episodio y, en la lista de fuentes, elige proveedor e idioma (p. ej. **InfinityAnime · 🌎 Latino** o **EstrenosAnime · 🇪🇸 Castellano**).
+2. Abre un anime desde **cualquier catálogo que ya tengas**: el oficial **Cinemeta** (`tt…`) o el addon **Kitsu** (`kitsu:…`).
+3. Entra en un episodio y elige proveedor e idioma (p. ej. **AnimeJara · 🌎 Latino** o **Latanime · 🇪🇸 Castellano**).
 
-> 💡 Si un título no tiene coincidencia automática, el addon devuelve las opciones
-> «🔎 Buscar en estrenosanime.net» / «🔎 Buscar en infinityanime.net» para abrirlo a mano.
+> 💡 Si un título no tiene coincidencia automática, el addon ofrece
+> «🔎 Buscar en …» para cada proveedor y abrirlo a mano en su web.
 
 ---
 
@@ -80,22 +92,7 @@ npm start
 ```
 
 - En el **mismo PC**, Stremio Desktop acepta `http://127.0.0.1:7000/manifest.json`.
-- Para la **TV/móvil de tu red**, usa la IP local del PC (ej. `http://192.168.1.50:7000/manifest.json`); fuera de casa necesitas una URL pública https (Opciones A/B o un túnel tipo Cloudflare Tunnel).
-
----
-
-## ⚙️ Configuración
-
-`https://TU-DESPLIEGUE/configure` (o el ⚙️ del addon en Stremio):
-
-| Opción | Qué hace |
-|---|---|
-| 🌐 **Proveedores** | `Todos / EstrenosAnime / InfinityAnime` — de qué webs quieres recibir streams |
-| 🗣️ **Idiomas a devolver** | `Todos / Subtitulado / Latino / Castellano`. Con «Todos» recibes un grupo por proveedor+idioma (orden: 🌎, 🇪🇸, 💬). Si pides solo Latino y el episodio de InfinityAnime no tiene Dub, ese proveedor no devuelve nada (no etiqueta mal) |
-| ▶️ **Reproducción** | `Auto` (vídeo directo dentro de Stremio cuando se puede + externo) o `Solo externo` |
-| ⬇️ **Descargas** | Añade los enlaces de descarga del episodio (Mega, 1fichier, Krakenfiles, Gofile…) como opciones externas |
-
-La configuración viaja codificada en la URL del manifiesto; no se guarda nada en el servidor.
+- Para la **TV/móvil de tu red**, usa la IP local del PC; fuera de casa necesitas una URL pública https (Opciones A/B o un túnel tipo Cloudflare Tunnel).
 
 ---
 
@@ -103,34 +100,27 @@ La configuración viaja codificada en la URL del manifiesto; no se guarda nada e
 
 ```
 Petición de Stremio (stream/series/tt0388629:1:5)
-  -> título desde Cinemeta ("One Piece", año, lista de vídeos)
-  -> búsqueda en CADA proveedor activo (+ variante "Temporada N" si T>1)
-       · EstrenosAnime: 1 ficha por idioma (one-piece · one-piece-latino…)
-       · InfinityAnime: directorio + REST WP -> mejor ficha única (one-piece-tv)
+  -> título desde Cinemeta/Kitsu/Jikan (+ lista de vídeos si es Cinemeta)
+  -> búsqueda en LOS 5 proveedores (+ variante "Temporada N" si T>1)
+       · perLang (EstrenosAnime, Latanime): mejor ficha por idioma
+       · single (InfinityAnime, AnimeJara, AnimeD23): mejor ficha única
   -> nº de episodio en cada web:
-       · ficha con temporada  -> episodio dentro de la temporada
-       · ficha única completa -> posición absoluta (lista de Cinemeta)
-  -> Estrenos:  /ver/{slug}/episodio-{n}      (idioma = el del slug)
-     Infinity: /{slug}/episodio-{n}/         (idioma = grupo Sub:/Dub: y
-                                               texto SUBTITULADO/DOBLADO)
-  -> resolvedor de embeds -> directo (.m3u8/.mp4) o externo
+       · AnimeJara             -> {temporada}x{episodio-en-temporada}
+       · ficha con temporada   -> episodio dentro de la temporada
+       · ficha única completa  -> posición absoluta (lista de Cinemeta)
+  -> página del episodio de cada proveedor -> servidores (+ idioma)
+  -> resolvedor por host -> directo (.m3u8/.mp4) o externo
   -> orden final: idioma (🌎>🇪🇸>💬) -> proveedor -> directo > externo
-     > descarga > página oficial
+     > descarga > página oficial   (máx. 60 opciones)
 ```
 
-En InfinityAnime, los enlaces de la sección «Descargas» se convierten a
-reproductor (Filemoon `/d/→/e/`, Mp4Upload `embed-`, StreamTape `/e/`,
-Vidara `/v/`); los hosts sin player (Mega, 1fichier…) quedan solo como
-descarga opcional.
-
-Kitsu/MAL: el título sale de la API de Kitsu / Jikan y el episodio se usa tal
-cual (esas fichas ya son por temporada/título concreto).
-
-**Resolvedor de embeds** (`src/extractors.js`): busca medios directos,
-desofusca el *packer* de Dean Edwards (Filemoon/VidHide/StreamWish/VOE/
-MixDrop…), casos especiales DoodStream/StreamTape/OK.ru, y si la página
-carga servidores por AJAX los auto-descubre con el `episode_id`. Lo no
-resuelto queda como enlace externo — nunca te quedas sin opción.
+**Resolvers por reproductor** (`src/extractors.js`): dispatcher por host —
+VOE (HLS en JSON-LD/base64), Filemoon y MP4Upload («Upload»), la familia
+VidHide/StreamWish/FileLions/LuluStream (packer de Dean Edwards), DoodStream
+(`pass_md5`), StreamTape, OK.ru (`flashvars`), MixDrop (`MDCore.wurl`),
+Sibnet y YourUpload— **siempre con caída al extractor genérico** (packer +
+búsqueda de medios, 1 nivel de iframe anidado, auto-descubrimiento AJAX).
+Lo no resuelto queda como enlace externo: nunca te quedas sin opción.
 
 ---
 
@@ -138,67 +128,68 @@ resuelto queda como enlace externo — nunca te quedas sin opción.
 
 ```bash
 npm install
-npm test            # 27 pruebas sin red
+npm test            # pruebas sin red
 npm start           # servidor en :7000
 
 # Diagnóstico contra las webs reales (máquina con internet normal):
-node scripts/probe.js map tt0388629:1:1 series     # mapeo multi-proveedor
-node scripts/probe.js map kitsu:7442:5 anime
-node scripts/probe.js search "One Piece"           # EstrenosAnime
-node scripts/probe.js search-inf "One Piece"       # InfinityAnime
-node scripts/probe.js watch one-piece-latino 1 --resolve
-node scripts/probe.js watch one-piece-tv 1 --infinity --resolve
+node scripts/probe.js map tt0388629:1:1 series
+node scripts/probe.js search-all "One Piece"
+node scripts/probe.js search-extra animejara "Black Clover"
+node scripts/probe.js watch black-clover 3 --provider=animejara --season=2 --resolve
+node scripts/probe.js watch black-clover-ep 12 --provider=animed23
+node scripts/probe.js resolve "https://voe.sx/e/XXXX"
 ```
 
 ### Estructura
 
 ```
 src/
-├── index.js       # Express: /, /configure, /health, /debug/* + router (solo stream)
-├── addon.js       # manifiesto SOLO-STREAM + handler (orden idioma→proveedor)
-├── providers.js   # registro de proveedores + normalización de watches
-├── idmap.js       # IMDb/Kitsu/MAL -> título -> trabajos por proveedor + nº ep.
-├── landing.js     # portada de instalación y /configure (ES)
-├── scraper.js     # proveedor EstrenosAnime (buscador, fichas, /ver/)
-├── infinity.js    # proveedor InfinityAnime (directorio + REST WP + watch)
-├── extractors.js  # resolvedor de embeds (packer, HLS, AJAX auto-discovery)
-├── http.js        # fetch con cabeceras de navegador, timeouts y caché
-├── config.js      # rutas/idiomas verificados de ambas webs
-├── util.js        # idioma por slug, títulos/temporadas, IDs, caché TTL
-└── demo.js        # datos DEMO offline de ambos proveedores (DEMO_FALLBACK=1)
-test/ (scraper · idmap · infinity) · scripts/probe.js
+├── index.js           # Express: /, /health, /debug/* + router (solo stream)
+├── addon.js           # manifiesto SOLO-STREAM + handler (5 proveedores)
+├── providers.js       # registro de proveedores + normalización
+├── extra-providers.js # AnimeJara · Latanime · AnimeD23 (+ parsers genéricos)
+├── idmap.js           # IMDb/Kitsu/MAL -> título -> trabajos + nº episodio
+├── landing.js         # portada de instalación (ES), sin configurador
+├── scraper.js         # proveedor EstrenosAnime (buscador, fichas, /ver/)
+├── infinity.js        # proveedor InfinityAnime (directorio + REST WP + watch)
+├── extractors.js      # resolvers por host + genérico (packer/HLS/AJAX)
+├── http.js            # fetch con cabeceras de navegador, timeouts y caché
+├── config.js          # dominios y rutas verificadas de las 5 webs
+└── util.js            # idiomas, títulos/temporadas, IDs, helpers
+test/ (scraper · idmap · infinity · extra-providers) · scripts/probe.js
 Dockerfile · docker-compose.yml · render.yaml · .env.example
 ```
 
-> Nota: `scraper.js` conserva funciones internas de listados/fichas porque el
-> **mapeo y el diagnóstico** las reutilizan (buscar, verificar conteos EPS).
-> Como recursos de **Stremio** el addon expone **solo `stream`**: `/catalog/…`
-> y `/meta/…` responden 404.
+> Nota: internamente se leen listados y fichas para mapear y diagnosticar,
+> pero como recursos de **Stremio** el addon expone **solo `stream`**.
 
 ### Variables de entorno
 
 | Variable | Defecto | Uso |
 |---|---|---|
 | `PORT` | `7000` | Puerto del servidor |
-| `EA_BASE_URL` | `https://estrenosanime.net` | Dominio de EstrenosAnime (por si se muda) |
-| `INF_BASE_URL` | `https://infinityanime.net` | Dominio de InfinityAnime (espejo conocido: `animeonline.lat`) |
-| `EA_TIMEOUT_MS` / `EA_EMBED_TIMEOUT_MS` | `15000` / `12000` | Timeouts a web y servidores |
+| `EA_BASE_URL` | `https://estrenosanime.net` | Dominio de EstrenosAnime |
+| `INF_BASE_URL` | `https://infinityanime.net` | Dominio de InfinityAnime |
+| `JARA_BASE_URL` | `https://animejara.com` | Dominio de AnimeJara |
+| `LAT_BASE_URL` | `https://latanime.org` | Dominio de Latanime |
+| `D23_BASE_URL` | `https://animed23.com` | Dominio de AnimeD23 |
+| `EA_TIMEOUT_MS` / `EA_EMBED_TIMEOUT_MS` | `15000` / `12000` | Timeouts a webs y servidores |
 | `EA_USER_AGENT` | Chrome 126 | User-Agent de las peticiones |
-| `DEMO_FALLBACK` | *(off)* | `1` = datos DEMO si no hay salida a la web/Cinemeta (desarrollo/preview) |
 | `DEBUG` | *(on)* | `0` = desactiva los `/debug/*` públicos |
+
+No hay interruptor de demo ni ajustes de usuario: no existen.
 
 ### Endpoints útiles
 
 | Ruta | Para qué |
 |---|---|
-| `/` · `/configure` | Instalar (con/sin configuración) |
-| `/manifest.json` | Manifiesto solo-stream (también `/{config}/manifest.json`) |
+| `/` | Portada de instalación |
+| `/manifest.json` | Manifiesto solo-stream |
 | `/stream/{type}/{id}.json` | **El único recurso de Stremio** |
-| `/health` | Estado + fuentes (Render/Docker) |
-| `/debug/map?id=tt0388629:1:1&type=series` | Título, búsquedas y trabajos (`provider` + slug + episodio) |
-| `/debug/watch?slug=one-piece&ep=1` | Servidores de Estrenos (`&resolve=1` prueba el 1º) |
-| `/debug/watch?provider=infinity&slug=one-piece-tv&ep=1` | Servidores/descargas de Infinity por idioma |
-| `/debug/search?q=One+Piece` | Resultados de **ambos** proveedores (`&provider=infinity` para uno) |
+| `/health` | Estado + las 5 fuentes (Render/Docker) |
+| `/debug/map?id=tt0388629:1:1&type=series` | Título, búsquedas y trabajos por proveedor |
+| `/debug/watch?provider=animejara&slug=black-clover&season=2&ep=3` | Servidores crudos (`&resolve=1` prueba el 1º) |
+| `/debug/search?q=One+Piece` | Resultados de los 5 proveedores (`&provider=latanime` para uno) |
 
 ---
 
@@ -206,42 +197,43 @@ Dockerfile · docker-compose.yml · render.yaml · .env.example
 
 **No veo ningún catálogo nuevo en Stremio.**
 Correcto: este addon es **solo de streams** por diseño. Busca el anime desde
-Cinemeta, Kitsu u otro catálogo que ya tengas; los servidores
-«EstrenosAnime»/«InfinityAnime» aparecen al elegir episodio.
+Cinemeta, Kitsu u otro catálogo que ya tengas; los proveedores aparecen al
+elegir episodio.
 
-**¿Por qué InfinityAnime no da Castellano?**
-Porque esa web no lo etiqueta: su única etiqueta de doblaje es «Latino»
-(«Dub»). El Castellano lo aporta EstrenosAnime; con proveedores en «Todos»
-recibes el conjunto completo (ver INVESTIGACION-INFINITY.md §2).
+**No aparece ningún engranaje de ajustes.**
+También correcto: **no hay configurador**. Siempre se consultan los 5
+proveedores y todos los idiomas; tú eliges en la lista de fuentes.
 
-**Un título de Cinemeta no devuelve streams en español.**
-Puede que la web lo tenga con otro nombre (romaji vs inglés) o que no esté.
-Prueba el mismo título desde el **addon Kitsu** (sus títulos suelen coincidir
-mejor con los de la web) y revisa el mapeo en
-`/debug/map?id=tt…:T:E&type=series`.
+**Un proveedor no devuelve Castellano/Latino.**
+Cada web publica lo que publica: p. ej. InfinityAnime solo etiqueta
+Sub/Latino y AnimeD23 marca Lat/Sub por episodio. El conjunto de los 5
+cubre Sub + Latino + Castellano en la práctica totalidad de títulos.
+
+**Un título no devuelve streams.**
+Puede que las webs lo tengan con otro nombre (romaji vs inglés). Prueba el
+mismo título desde el **addon Kitsu** y revisa `/debug/map?id=…&type=series`
+en tu despliegue: verás los trabajos elegidos por proveedor.
 
 **Sale un episodio equivocado en series por temporadas.**
-Repórtalo con la salida de `/debug/map` para ese ID: allí se ve la ficha y el
-nº elegidos (temporada vs. absoluto) y se puede ajustar la heurística.
+Repórtalo con la salida de `/debug/map` para ese ID (se ve temporada vs.
+absoluto vs. SxE de AnimeJara) y se ajusta la heurística.
 
 **Solo ofrece «Abrir en el navegador».**
-Ese servidor no entregó vídeo directo en ese momento. La opción
-«🌐 estrenosanime.net» abre la página oficial del episodio con todos sus servidores.
+Ese servidor no entregó vídeo directo en ese momento; la opción
+«🌐 {web}» abre la página oficial del episodio con todos sus servidores.
 
 **¿Y si una web cambia de dominio?**
-Define `EA_BASE_URL=` / `INF_BASE_URL=https://nuevo-dominio` y reinicia:
-no hay que tocar código.
+Define su variable (`EA_BASE_URL=`, `INF_BASE_URL=`, `JARA_BASE_URL=`,
+`LAT_BASE_URL=` o `D23_BASE_URL=https://nuevo-dominio`) y reinicia.
 
 ---
 
 ## ⚖️ Aviso legal
 
 Addon **no oficial** y sin ánimo de lucro. Este servidor **no aloja ningún
-vídeo**: solo lee las páginas públicas de estrenosanime.net e
-infinityanime.net y enlaza a los servidores de terceros que esas webs
-enlazan. Todos los títulos, imágenes y vídeos pertenecen a sus respectivos
-autores. Úsalo solo donde sea legal en tu país.
-Úsalo únicamente donde sea legal en tu país y, si te gusta un anime,
-apoya su lanzamiento oficial.
+vídeo**: solo lee las páginas públicas de las webs fuente y enlaza a los
+servidores de terceros que esas webs enlazan. Todos los títulos, imágenes y
+vídeos pertenecen a sus respectivos autores. Úsalo solo donde sea legal en
+tu país y, si te gusta un anime, apoya su lanzamiento oficial.
 
-Hecho con 💙 para la comunidad hispanohablante · v1.1.0 (solo-stream)
+Hecho con 💙 para la comunidad hispanohablante · v1.3.0 (solo-stream, 5 proveedores)

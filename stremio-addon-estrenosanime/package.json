@@ -1,7 +1,7 @@
 {
   "name": "stremio-addon-estrenosanime",
-  "version": "1.2.0",
-  "description": "Addon de Stremio SOLO de streams: anime en Sub Español, Español Latino y Castellano desde estrenosanime.net e infinityanime.net, sobre fichas IMDb/Cinemeta, Kitsu y MAL",
+  "version": "1.3.0",
+  "description": "Addon de Stremio SOLO de streams: anime en Sub Español, Español Latino y Castellano desde estrenosanime.net, infinityanime.net, animejara.com, latanime.org y animed23.com, sobre fichas IMDb/Cinemeta, Kitsu y MAL. Sin demos y sin configuración.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
@@ -20,7 +20,11 @@
     "latino",
     "castellano",
     "subtitulado",
-    "estrenosanime"
+    "estrenosanime",
+    "infinityanime",
+    "animejara",
+    "latanime",
+    "animed23"
   ],
   "license": "MIT",
   "dependencies": {

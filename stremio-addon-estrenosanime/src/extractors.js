@@ -154,11 +154,145 @@ function resolveOkru(html) {
   return hls ? hls[1] : null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Resolvers por host (dispatcher)                                     */
+/* ------------------------------------------------------------------ */
+/*
+ * ¿Es buena idea un resolver por reproductor? Sí, con matices:
+ * los hosts cambian su player a menudo, así que cada resolver específico
+ * es pequeño, está aislado por host y SIEMPRE cae al genérico (packer +
+ * búsqueda de fuentes) si no encuentra nada. Añadir un host nuevo =
+ * una entrada en HOST_PATTERNS (+ su extractor si es especial).
+ */
+
+const HOST_PATTERNS = [
+  ['voe', /(^|[.-])voe([.-]|$)|voe\.sx|jilliandescribecompany|donaldssonlebons|marlyndamian|reputationsheriff|diananaturecure|paulpathsendless|gloriamurrayunlearn/i],
+  ['filemoon', /filemoon|byseraguci|bysurodak|filesmoon|moonmov|mivalyo|fmoonhive|filemoonlink/i],
+  ['mp4upload', /mp4upload/i],
+  ['dood', /dood|ds2play|d0+0o0xd|do7go|d-s\.io|dooodster|dsvplay|playmogo|all3do/i],
+  ['streamtape', /streamtape|strtape|tapewithadblock|tapeonsports|shavetape/i],
+  ['okru', /(^|\.)ok\.ru$/i],
+  ['mixdrop', /mixdrop|mxdrop|mixdrv/i],
+  ['sibnet', /sibnet/i],
+  ['yourupload', /yourupload/i],
+  // Familia VidHide / StreamWish / FileLions (ranker JS muy parecido)
+  ['vidhide', /vidhide|filelions|dhcplay|streamwish|hglink|swhrz|moontv|vidzy|awish|swashin|mwish|vidara|lulustream|luluvdo|lulustream|lulusvdo|embedv|kinoger|vidoza/i],
+];
+
+function classifyHost(url) {
+  const host = hostOf(url);
+  for (const [name, re] of HOST_PATTERNS) {
+    if (re.test(host)) return name;
+  }
+  return 'generic';
+}
+
+/** Convierte URL de ficha/descarga a su forma de embed cuando el host la tiene. */
+function normalizeEmbedUrl(raw) {
+  const absUrl = absoluteUrl(raw, BASE_URL);
+  if (!absUrl) return raw;
+  let u;
+  try { u = new URL(absUrl); } catch { return absUrl; }
+  const kind = classifyHost(absUrl);
+  const path = u.pathname;
+  let m;
+  if (kind === 'mp4upload' && (m = path.match(/^\/(?:embed-)?([A-Za-z0-9]+)\.html/))) {
+    return `https://www.mp4upload.com/embed-${m[1]}.html`;
+  }
+  if (kind === 'streamtape' && (m = path.match(/^\/(?:v|e)\/([A-Za-z0-9]+)/))) {
+    return `https://streamtape.com/e/${m[1]}`;
+  }
+  if (kind === 'mixdrop' && (m = path.match(/^\/(?:f|e)\/([A-Za-z0-9]+)/))) {
+    return `${u.origin}/e/${m[1]}`;
+  }
+  if ((kind === 'filemoon' || kind === 'dood') && (m = path.match(/^\/(?:d|e)\/([A-Za-z0-9]{5,})/))) {
+    return `${u.origin}/e/${m[1]}`;
+  }
+  if (kind === 'voe') {
+    if ((m = path.match(/^\/e\/([A-Za-z0-9]+)/))) return `${u.origin}/e/${m[1]}`;
+    if ((m = path.match(/^\/([A-Za-z0-9]{8,})(?:\.html)?\/?$/))) return `${u.origin}/e/${m[1]}`;
+  }
+  return absUrl;
+}
+
+/** Decodifica cadenas base64 que escondan URLs (VOE y otros ofuscan así). */
+function decodeBase64Texts(text) {
+  const out = [];
+  const tokens = String(text || '').match(/[A-Za-z0-9+/=_-]{32,}/g) || [];
+  for (const token of tokens.slice(0, 60)) {
+    try {
+      const decoded = Buffer.from(token.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8');
+      if (/https?:\/\//i.test(decoded) || /\.m3u8|\.mp4/i.test(decoded)) out.push(decoded);
+    } catch { /* no era base64 útil */ }
+  }
+  return out;
+}
+
+/** collectMediaCandidates + URLs protocol-relativas/relativas y base64. */
+function collectMediaRich(texts, baseForRelative = '') {
+  const expanded = [];
+  for (const t of texts) {
+    if (!t) continue;
+    expanded.push(t);
+    expanded.push(...decodeBase64Texts(t));
+  }
+  const found = new Set(collectMediaCandidates(expanded));
+  for (const text of expanded) {
+    // file:"//host/x.mp4"  ·  src:"/v/x.mp4"  ·  "hls":"...m3u8"
+    for (const m of String(text).matchAll(/(?:file|source|src|hls|video_url|contentUrl)\s*['"]?\s*:\s*['"]((?:\/\/|\/)[^'"]+)['"]/gi)) {
+      let candidate = m[1].replace(/\\\//g, '/');
+      if (candidate.startsWith('//')) candidate = `https:${candidate}`;
+      else if (candidate.startsWith('/') && baseForRelative) {
+        try { candidate = new URL(candidate, baseForRelative).href; } catch { continue; }
+      } else continue;
+      if (/\.(m3u8|mp4|mkv|webm|mpd)(\?|$)/i.test(candidate)) found.add(candidate);
+    }
+    for (const m of String(text).matchAll(/"contentUrl"\s*:\s*"(https?:\/\/[^"]+)"/gi)) {
+      found.add(m[1].replace(/\\\//g, '/'));
+    }
+  }
+  return [...found]
+    .filter((u) => !/\.(jpg|jpeg|png|webp|vtt|srt)(\?|$)/i.test(u))
+    .sort((a, b) => scoreMedia(b) - scoreMedia(a));
+}
+
+function extractVoeMedia(html, baseForRelative = '') {
+  const texts = [html, ...extractPackedScripts(html)];
+  const candidates = collectMediaRich(texts, baseForRelative);
+  // VOE suele exponer HLS en un JSON-LD VideoObject/contentUrl: ya cubierto.
+  return candidates[0] || null;
+}
+
+function extractMixdropMedia(html) {
+  const texts = [html, ...extractPackedScripts(html)];
+  for (const text of texts) {
+    const m = String(text).match(/(?:MDCore\.)?wurl\s*=\s*["']((?:\/\/|https?:\/\/)[^"']+)["']/i)
+      || String(text).match(/["']((?:\/\/|https?:\/\/)[^"']+\.mp4[^"']*)["']/i);
+    if (m) {
+      const url = m[1].startsWith('//') ? `https:${m[1]}` : m[1];
+      if (url) return url;
+    }
+  }
+  return collectMediaRich(texts)[0] || null;
+}
+
+function extractSibnetMedia(html, finalUrl = '') {
+  const base = finalUrl || 'https://sibnet.ru/';
+  return collectMediaRich([html], base)[0] || null;
+}
+
+function extractPackedMedia(html, baseForRelative = '') {
+  // Filemoon · MP4Upload («Upload») · VidHide/StreamWish/FileLions ·
+  // YourUpload · LuluStream: player empaquetado con Dean Edwards.
+  const texts = [html, ...extractPackedScripts(html)];
+  return collectMediaRich(texts, baseForRelative)[0] || null;
+}
+
 /**
  * Intenta convertir un embed (iframe) en una URL directa reproducible.
  * Devuelve { url, referer } o null si no fue posible.
  */
-async function resolveEmbed(embedUrl, pageReferer = `${BASE_URL}/`) {
+async function resolveEmbed(embedUrl, pageReferer = `${BASE_URL}/`, depth = 0) {
   const host = hostOf(embedUrl);
   const { text: html, finalUrl } = await fetchText(embedUrl, {
     timeoutMs: EMBED_TIMEOUT_MS,
@@ -330,8 +464,20 @@ module.exports = {
   unpackPacked,
   extractPackedScripts,
   collectMediaCandidates,
+  collectMediaRich,
   resolveEmbed,
   discoverViaAjax,
   extractEmbedsFromText,
+  // resolvers por host (testeables)
+  HOST_PATTERNS,
+  classifyHost,
+  normalizeEmbedUrl,
+  extractVoeMedia,
+  extractMixdropMedia,
+  extractSibnetMedia,
+  extractPackedMedia,
+  resolveDood,
+  resolveStreamtape,
+  resolveOkru,
   USER_AGENT,
 };
