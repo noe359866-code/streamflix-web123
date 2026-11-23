@@ -1,6 +1,0 @@
-node_modules
-test
-.env
-*.log
-*.md
-render.yaml

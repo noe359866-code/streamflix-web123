@@ -1,25 +1,19 @@
-# Gradle / Android
-.gradle/
-build/
-app/build/
-local.properties
-captures/
-.externalNativeBuild/
-.cxx/
-*.iml
-.idea/
-*.hprof
+# Dependencias
+node_modules/
 
-# Keystores & secrets
+# Builds
+build/
+dist/
+
+# Entorno y secretos
+.env
+.env.*
 *.jks
 *.keystore
-keystore.properties
 
-# OS / editors
+# Sistema / editores
 .DS_Store
 Thumbs.db
+.idea/
 .vscode/
-
-# Node (addon de Stremio)
-node_modules/
-.env
+*.iml
